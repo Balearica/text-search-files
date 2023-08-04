@@ -20,7 +20,6 @@ const w = await initMuPDFWorker();
 const readMsg = async (file) => {
     const msgReader = new MSGReader(await file.arrayBuffer());
     const fileData = msgReader.getFileData();
-    console.log(fileData);
     globalThis.docText[file.name] += fileData.body;
 
     const attachmentFiles = [];
@@ -186,7 +185,10 @@ async function readFiles(files) {
             fileCountSkippedElem.textContent = String(parseInt(fileCountSkippedElem.textContent) + 1);
         } else {
             try {
-                read[ext](file);
+                // TODO: This should eventually use promises + workers for better performance, but this will require edits.
+                // Notably, as the same mupdf worker is reused, if run in asyc the PDF may be replaced before readPdf is finished reading it.
+                // The other functions are not set up to run in workers.
+                await read[ext](file);
                 fileListSuccessElem?.appendChild(elemArr[i]);
                 fileCountSuccessElem.textContent = String(parseInt(fileCountSuccessElem.textContent) + 1);
             } catch (error) {
