@@ -4,7 +4,12 @@ import { initMuPDFWorker } from "./mupdf/mupdf-async.js";
 import { MSGReader } from "./lib/msg.reader.js";
 import { ZipReader, BlobReader, TextWriter } from "./lib/zip.js/index.js";
 
-const fileListElem = document.getElementById('fileList');
+const fileListSuccessElem = document.getElementById('fileListSuccess');
+const fileListFailedElem = document.getElementById('fileListFailed');
+const fileListSkippedElem = document.getElementById('fileListSkipped');
+const fileCountSuccessElem = document.getElementById('fileCountSuccess');
+const fileCountFailedElem = document.getElementById('fileCountFailed');
+const fileCountSkippedElem = document.getElementById('fileCountSkipped');
 
 const matchListElem = document.getElementById('matchList');
 
@@ -147,7 +152,7 @@ const readTxt = async (file) => {
 }
 
 
-
+// This object contains the mapping between file extensions and read functions.
 const read = {
     docx: readDocx,
     htm: readHtml,
@@ -167,7 +172,6 @@ async function readFiles(files) {
         li.innerHTML = files[i].name;
         li.setAttribute("class", "list-group-item");
         elemArr.push(li);
-        fileListElem?.appendChild(li);
     }
 
     for (let i = 0; i < files.length; i++) {
@@ -175,19 +179,20 @@ async function readFiles(files) {
         const file = files[i];
         globalThis.docText[file.name] = "";
 
-        try {
-            const ext = file.name.match(/\.(\w{1,5})$/)?.[1]?.toLowerCase();
+        const ext = file.name.match(/\.(\w{1,5})$/)?.[1]?.toLowerCase();
 
-            if (read[ext]) {
+        if (!read[ext]) {
+            fileListSkippedElem?.appendChild(elemArr[i]);
+            fileCountSkippedElem.textContent = String(parseInt(fileCountSkippedElem.textContent) + 1);
+        } else {
+            try {
                 read[ext](file);
-            } else {
-                throw ("File type not supported");
+                fileListSuccessElem?.appendChild(elemArr[i]);
+                fileCountSuccessElem.textContent = String(parseInt(fileCountSuccessElem.textContent) + 1);
+            } catch (error) {
+                fileListFailedElem?.appendChild(elemArr[i]);
+                fileCountFailedElem.textContent = String(parseInt(fileCountFailedElem.textContent) + 1);
             }
-
-            elemArr[i].setAttribute("class", "list-group-item list-group-item-success");
-
-        } catch (error) {
-            elemArr[i].setAttribute("class", "list-group-item list-group-item-danger");
         }
 
     }
