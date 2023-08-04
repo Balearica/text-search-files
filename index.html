@@ -2,7 +2,7 @@
 <html class="h-100">
 
 <head>
-	<title>Decrypt Documents</title>
+	<title>Search Files</title>
 	<meta charset="utf-8">
 	<link rel="stylesheet" href="bootstrap.min.css">
 	<meta name="theme-color" content="#7952b3">
@@ -43,8 +43,9 @@
 			</div>
 		</header>
 
-		<main class="px-3">
+		<main>
 			<h1>Upload Files to Search</h1>
+			<t>Supported formats: <span id="supportedFormats"></span></t>
 			<!-- <p class="lead"></p> -->
 			<div class="mb-3"> 
 				<label class="form-label" for="customFile">Select Files</label> 
@@ -54,17 +55,18 @@
 			</div>
 			<ul id="fileList" class="list-group">
 			</ul>
+
+			<div class="input-group mt-2">
+				<input type="text" class="form-control" placeholder="Search Files" id="searchTextInput">
+				<span class="input-group-btn">
+					<button class="btn btn-primary" type="button" id="searchTextBtn">Search Files</button>
+				</span>
+			</div>
+	
+			<div class="list-group mt-2" id="matchList">
+			</div>
+	
 		</main>
-
-		<div class="input-group mt-2">
-			<input type="text" class="form-control" placeholder="Search Products" id="searchTextInput">
-			<span class="input-group-btn">
-				<button class="btn btn-primary" type="button" id="searchTextBtn">Search Documents</button>
-			</span>
-		</div>
-
-		<div class="list-group mt-2" id="matchList">
-		</div>
 
 		<!-- Keeping empty footer as deleting impacts layout -->
 		<footer class="mt-auto text-white-50">

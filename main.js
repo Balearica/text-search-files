@@ -17,12 +17,20 @@ const readMsg = async (file) => {
     const fileData = msgReader.getFileData();
     console.log(fileData);
     globalThis.docText[file.name] += fileData.body;
+
+    const attachmentFiles = [];
+    for (let i=0; i<fileData.attachments.length; i++) {
+        const attachmentObj = msgReader.getAttachment(i);
+        const attachmentFile = new File([attachmentObj.content], attachmentObj.fileName, {type: attachmentObj.mimeType ? attachmentObj.mimeType : "application/octet-stream"});
+        attachmentFiles.push(attachmentFile);
+    }
+    if (attachmentFiles.length > 0) readFiles(attachmentFiles);
 }
 
 const readPdf = async (file) => {
     const fileIArray = await file.arrayBuffer();
     const fileData = new Uint8Array(fileIArray);
-    
+
 
     const pdfDoc = await w.openDocument(fileData, "file.pdf");
     w["pdfDoc"] = pdfDoc;
@@ -41,7 +49,7 @@ const readDocx = async (file) => {
     const entries = await zipReader.getEntries();
     const textWriter = new TextWriter();
 
-    for (let i=0; i<entries.length; i++) {
+    for (let i = 0; i < entries.length; i++) {
         if (['word/document.xml', 'word/footnotes.xml', 'word/endnotes.xml', 'word/comments.xml'].includes(entries[i].filename)) {
             const xmlStr = await entries[i].getData(new TextWriter());
             // This matches both (1) normal text and (2) text inserted in tracked changes.
@@ -49,7 +57,7 @@ const readDocx = async (file) => {
             const textArr = xmlStr.match(/(?<=\<w:t[^\>]{0,30}?\>)[\s\S]+?(?=\<\/w:t\>)/g);
             if (!textArr) continue;
 
-            for (let j=0; j<textArr.length; j++) {
+            for (let j = 0; j < textArr.length; j++) {
                 globalThis.docText[file.name] += textArr[j] + " ";
             }
         }
@@ -65,15 +73,15 @@ const readXlsx = async (file) => {
     const entries = await zipReader.getEntries();
     const textWriter = new TextWriter();
 
-    for (let i=0; i<entries.length; i++) {
+    for (let i = 0; i < entries.length; i++) {
         if (['xl/workbook.xml', 'xl/sharedStrings.xml'].includes(entries[i].filename)) {
             const xmlStr = await entries[i].getData(new TextWriter());
             // This matches both (1) normal text and (2) text inserted in tracked changes.
             // Text deleted in tracked changes is not included, as it is in "<w:delText>" tags rather than "<w:t>"
             const textArr = xmlStr.match(/(?<=\<t[^\>]{0,30}?\>)[\s\S]+?(?=\<\/t\>)/g);
             if (!textArr) continue;
-            
-            for (let j=0; j<textArr.length; j++) {
+
+            for (let j = 0; j < textArr.length; j++) {
                 globalThis.docText[file.name] += textArr[j] + " ";
             }
         }
@@ -83,12 +91,72 @@ const readXlsx = async (file) => {
 
 }
 
+const readPptx = async (file) => {
+    const zipFileReader = new BlobReader(file);
+    const zipReader = new ZipReader(zipFileReader);
+    const entries = await zipReader.getEntries();
+    const textWriter = new TextWriter();
+
+    for (let i = 0; i < entries.length; i++) {
+        if (/ppt\/slides\/[^\/]+.xml/.test(entries[i].filename) || /ppt\/notesSlides\/[^\/]+.xml/.test(entries[i].filename) || /ppt\/comments\/[^\/]+.xml/.test(entries[i].filename)) {
+            const xmlStr = await entries[i].getData(new TextWriter());
+            // This matches both (1) normal text and (2) text inserted in tracked changes.
+            // Text deleted in tracked changes is not included, as it is in "<w:delText>" tags rather than "<w:t>"
+            const textArr = xmlStr.match(/(?<=\<a:t[^\>]{0,30}?\>)[\s\S]+?(?=\<\/a:t\>)/g);
+            if (!textArr) continue;
+
+            for (let j = 0; j < textArr.length; j++) {
+                globalThis.docText[file.name] += textArr[j] + " ";
+            }
+        }
+    }
+
+    await zipReader.close();
+
+}
+
+function readTextFile(file) {
+    return new Promise((resolve, reject) => {
+        let reader = new FileReader();
+        reader.onload = () => {
+            resolve(reader.result);
+        };
+        reader.onerror = reject;
+        reader.readAsText(file);
+    });
+}
+
+
+const readHtml = async (file) => {
+    let fileStr = await readTextFile(file);
+    // Delete any embedded Javascript code
+    fileStr = fileStr.replaceAll(/\<script[^>]*?\>[\s\S]*?\<\/script\>/gi, "");
+    const parser = new DOMParser();
+    const htmlDoc = parser.parseFromString(fileStr, "text/html");
+    // The text content often has an excessive number of newlines
+    const htmlStr = htmlDoc.body.textContent?.replaceAll(/\n{2,}/g, "\n");
+
+    globalThis.docText[file.name] =  htmlStr;
+
+}
+
+const readTxt = async (file) => {
+    const fileStr = await readTextFile(file);
+
+    globalThis.docText[file.name] =  fileStr;
+}
+
+
 
 const read = {
     docx: readDocx,
-    xlsx: readXlsx,
+    htm: readHtml,
+    html: readHtml,
     msg: readMsg,
-    pdf: readPdf
+    pdf: readPdf,
+    pptx: readPptx,
+    txt: readTxt,
+    xlsx: readXlsx,
 }
 
 
@@ -113,11 +181,11 @@ async function readFiles(files) {
             if (read[ext]) {
                 read[ext](file);
             } else {
-                throw("File type not supported");
+                throw ("File type not supported");
             }
 
             elemArr[i].setAttribute("class", "list-group-item list-group-item-success");
-    
+
         } catch (error) {
             elemArr[i].setAttribute("class", "list-group-item list-group-item-danger");
         }
@@ -195,3 +263,5 @@ document.getElementById('searchTextInput').addEventListener('keyup', function (e
 
 
 document.getElementById('searchTextBtn').addEventListener('click', (event) => searchDocs(document.getElementById("searchTextInput").value));
+
+document.getElementById("supportedFormats").innerText = Object.keys(read).join(", ");
