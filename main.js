@@ -28,7 +28,7 @@ const readMsg = async (file) => {
         const attachmentFile = new File([attachmentObj.content], attachmentObj.fileName, {type: attachmentObj.mimeType ? attachmentObj.mimeType : "application/octet-stream"});
         attachmentFiles.push(attachmentFile);
     }
-    if (attachmentFiles.length > 0) readFiles(attachmentFiles);
+    if (attachmentFiles.length > 0) await readFiles(attachmentFiles);
 }
 
 const readPdf = async (file) => {
