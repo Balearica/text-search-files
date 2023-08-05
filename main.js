@@ -64,6 +64,7 @@ const readDocx = async (file) => {
             for (let j = 0; j < textArr.length; j++) {
                 globalThis.docText[file.name] += textArr[j] + " ";
             }
+            globalThis.docText[file.name] += "\n";
         }
     }
 
@@ -88,6 +89,7 @@ const readXlsx = async (file) => {
             for (let j = 0; j < textArr.length; j++) {
                 globalThis.docText[file.name] += textArr[j] + " ";
             }
+            globalThis.docText[file.name] += "\n";
         }
     }
 
@@ -112,6 +114,7 @@ const readPptx = async (file) => {
             for (let j = 0; j < textArr.length; j++) {
                 globalThis.docText[file.name] += textArr[j] + " ";
             }
+            globalThis.docText[file.name] += "\n";
         }
     }
 
