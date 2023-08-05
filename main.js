@@ -265,6 +265,7 @@ async function searchDocs(search) {
     for (let j = 0; j < globalThis.matches.length; j++) {
         const entry = document.createElement('a');
         entry.setAttribute("class", "list-group-item list-group-item-action flex-column align-items-start");
+        entry.setAttribute("data-bs-toggle", "list");
 
         entry.addEventListener("click", () => viewResult(globalThis.matches[j]));
 
