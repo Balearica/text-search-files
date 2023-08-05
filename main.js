@@ -192,6 +192,8 @@ async function readFiles(files) {
                 // Notably, as the same mupdf worker is reused, if run in asyc the PDF may be replaced before readPdf is finished reading it.
                 // The other functions are not set up to run in workers.
                 await read[ext](file);
+                // Remove excessive newline characters to improve readability
+                globalThis.docText[file.name] = globalThis.docText[file.name].replaceAll(/(\n\s*){3,}/g, "\n\n");
                 fileListSuccessElem?.appendChild(elemArr[i]);
                 fileCountSuccessElem.textContent = String(parseInt(fileCountSuccessElem.textContent) + 1);
             } catch (error) {
