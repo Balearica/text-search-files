@@ -27,6 +27,11 @@
 		.accordion-body {
 			color: #000000
 		}
+
+		.cover-container {
+			max-width: 90rem!important;
+		}
+
 	</style>
 
 	<!-- Custom styles for this template -->
@@ -37,18 +42,10 @@
 
 	<!-- Keeping empty header as deleting impacts layout -->
 	<div class="cover-container d-flex w-100 h-100 p-3 mx-auto flex-column">
-		<header class="mb-auto">
-			<div>
-				<!-- <h3 class="float-md-start mb-0">Cover</h3> -->
-				<nav class="nav nav-masthead justify-content-center float-md-end">
-					<!-- <a class="nav-link active" aria-current="page" href="#">Home</a>
-					<a class="nav-link" href="#">Features</a>
-					<a class="nav-link" href="#">Contact</a> -->
-				</nav>
-			</div>
-		</header>
 
 		<main>
+			<div class="row" style="padding-top:5rem">
+			<div class="col" style="display:inline-block;width:50%">
 			<h1>Upload Files to Search</h1>
 			<t>Supported formats: <span id="supportedFormats"></span></t>
 			<!-- <p class="lead"></p> -->
@@ -108,7 +105,13 @@
 	
 			<div class="list-group mt-2" id="matchList">
 			</div>
-	
+		</div>
+
+		<div class="" id="viewerCol" style="width:0px;transition:width .35s ease">
+			<div class="card card-body" id="viewerCard" style="padding:0;border:0px solid rgba(0,0,0,.125);overflow:auto;height:90vh;color: #000000;position:sticky;top:1rem;margin-top:7rem">
+				Some placeholder content for the collapse component. This panel is hidden by default but revealed when the user activates the relevant trigger.
+			  </div>
+		</div>		  
 		</main>
 
 		<!-- Keeping empty footer as deleting impacts layout -->

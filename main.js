@@ -200,8 +200,30 @@ async function readFiles(files) {
     }
 }
 
+/**
+ * @param {string} fileName - Name of file
+ * @param {number} index - Index of the start of the snippet
+ * @param {string} snippet - Short text with matching term and some context to display in the search results
+ */
+function searchMatch(fileName, index, snippet) {
+    /** @type {string} */ 
+    this.fileName = fileName;
+    /** @type {number} */ 
+    this.index = index;
+    /** @type {string} */ 
+    this.snippet = snippet;
+  }
+  
 const contextLength = 100;
-function searchText(text, search) {
+
+/**
+ * @param {string} fileName - Name of file
+ * @param {string} search - Search term
+ */
+function searchText(fileName, search) {
+
+    const text = globalThis.docText[fileName];
+
     const regex = new RegExp(search, "gi");
     let result;
     const indices = [];
@@ -214,9 +236,11 @@ function searchText(text, search) {
     for (let i = 0; i < indices.length; i++) {
         // Matches are omitted if they are already included in the context for another match
         if (i == 0 || indices[i] > (lastIndexIncluded + contextLength - 10)) {
-            const match = text.slice(Math.max(0, indices[i] - contextLength), Math.min(text.length, indices[i] + contextLength));
+
+            const matchText = text.slice(Math.max(0, indices[i] - contextLength), Math.min(text.length, indices[i] + contextLength));
             const replaceRegex = new RegExp("(" + search + ")", "ig");
-            matches.push(match.replaceAll(replaceRegex, "<b>$1</b>"));
+
+            matches.push(new searchMatch(fileName, indices[i], matchText.replaceAll(replaceRegex, "<b>$1</b>")));
             lastIndexIncluded = indices[i];
         }
     }
@@ -226,24 +250,28 @@ function searchText(text, search) {
 
 }
 
+globalThis.matches = [];
+
 async function searchDocs(search) {
     matchListElem.innerHTML = "";
+    globalThis.matches = [];
     for (const [key, value] of Object.entries(globalThis.docText)) {
-        const matches = searchText(value, search);
-
-        for (let j = 0; j < matches.length; j++) {
-            const entry = document.createElement('a');
-            entry.setAttribute("class", "list-group-item list-group-item-action flex-column align-items-start");
-
-
-            entry.innerHTML = `<p class="mb-1">${matches[j]}</p>
-                    <small>${key}</small>`;
-
-            matchListElem.appendChild(entry);
-
-
-        }
+        globalThis.matches.push(...searchText(key, search));
     }
+
+    for (let j = 0; j < globalThis.matches.length; j++) {
+        const entry = document.createElement('a');
+        entry.setAttribute("class", "list-group-item list-group-item-action flex-column align-items-start");
+
+        entry.addEventListener("click", () => viewResult(globalThis.matches[j]));
+
+
+        entry.innerHTML = `<p class="mb-1">${globalThis.matches[j].snippet}</p>
+                <small>${globalThis.matches[j].fileName}</small>`;
+
+        matchListElem.appendChild(entry);
+    }
+
 
     if (matchListElem.innerHTML == "") {
         const entry = document.createElement('a');
@@ -253,6 +281,34 @@ async function searchDocs(search) {
 
         matchListElem.appendChild(entry);
     }
+
+
+}
+
+globalThis.initViewer = false;
+
+/**
+* @param {searchMatch} match - Name of file
+*/
+async function viewResult(match) {
+    if (!globalThis.initViewer) {
+        document.getElementById("viewerCol").style.width = "50%";
+        // The location of the highlighted text is not detected correctly without waiting for the animation
+        await new Promise((r) => setTimeout(r, 100));
+        globalThis.initViewer = true;
+
+    }
+
+    // The snippet is wrapped in <span> tags as this allows for detection of the height of the match in the viewer
+    // and allows the scoll position to be set.
+    let innerHTML = globalThis.docText[match.fileName].slice(0,match.index) + "<span id='snippetText' style='background-color:yellow'>" + globalThis.docText[match.fileName].slice(match.index,match.index+200) + "</span>" + globalThis.docText[match.fileName].slice(match.index+200);
+
+    innerHTML = innerHTML.replaceAll(/\n/g, "<br/>");
+
+    document.getElementById("viewerCard").innerHTML = "<span>" + innerHTML + "</span>";
+
+    // Position the match ~1/3 of the way down the viewer
+    document.getElementById("viewerCard").scrollTop = document.getElementById("snippetText").offsetTop - document.getElementById("viewerCard").offsetHeight / 3;
 
 
 }
