@@ -56,15 +56,27 @@ const readDocx = async (file) => {
     for (let i = 0; i < entries.length; i++) {
         if (['word/document.xml', 'word/footnotes.xml', 'word/endnotes.xml', 'word/comments.xml'].includes(entries[i].filename)) {
             const xmlStr = await entries[i].getData(new TextWriter());
-            // This matches both (1) normal text and (2) text inserted in tracked changes.
-            // Text deleted in tracked changes is not included, as it is in "<w:delText>" tags rather than "<w:t>"
-            const textArr = xmlStr.match(/(?<=\<w:t[^\>]{0,30}?\>)[\s\S]+?(?=\<\/w:t\>)/g);
-            if (!textArr) continue;
 
-            for (let j = 0; j < textArr.length; j++) {
-                globalThis.docText[file.name] += textArr[j] + " ";
+            // Get array of paragraph ("p") elements
+            // This step allows for inserting line breaks between paragraphs
+            const pArr = xmlStr.match(/(?<=\<w:p[^>\/]{0,200}?\>)[\s\S]+?(?=\<\/w:p\>)/g);
+
+            if (!pArr) continue;
+
+            for (let j=0; j < pArr.length; j++) {
+
+                // This matches both (1) normal text and (2) text inserted in tracked changes.
+                // Text deleted in tracked changes is not included, as it is in "<w:delText>" tags rather than "<w:t>"
+                const textArr = pArr[j].match(/(?<=\<w:t[^>\/]{0,200}?\>)[\s\S]+?(?=\<\/w:t\>)/g);
+                if (!textArr) continue;
+
+                for (let k = 0; k < textArr.length; k++) {
+                    globalThis.docText[file.name] += textArr[k] + " ";
+                }
+                globalThis.docText[file.name] += "\n";
+
             }
-            globalThis.docText[file.name] += "\n";
+
         }
     }
 
@@ -83,7 +95,7 @@ const readXlsx = async (file) => {
             const xmlStr = await entries[i].getData(new TextWriter());
             // This matches both (1) normal text and (2) text inserted in tracked changes.
             // Text deleted in tracked changes is not included, as it is in "<w:delText>" tags rather than "<w:t>"
-            const textArr = xmlStr.match(/(?<=\<t[^\>]{0,30}?\>)[\s\S]+?(?=\<\/t\>)/g);
+            const textArr = xmlStr.match(/(?<=\<t[^>\/]{0,30}?\>)[\s\S]+?(?=\<\/t\>)/g);
             if (!textArr) continue;
 
             for (let j = 0; j < textArr.length; j++) {
@@ -108,7 +120,7 @@ const readPptx = async (file) => {
             const xmlStr = await entries[i].getData(new TextWriter());
             // This matches both (1) normal text and (2) text inserted in tracked changes.
             // Text deleted in tracked changes is not included, as it is in "<w:delText>" tags rather than "<w:t>"
-            const textArr = xmlStr.match(/(?<=\<a:t[^\>]{0,30}?\>)[\s\S]+?(?=\<\/a:t\>)/g);
+            const textArr = xmlStr.match(/(?<=\<a:t[^>\/]{0,30}?\>)[\s\S]+?(?=\<\/a:t\>)/g);
             if (!textArr) continue;
 
             for (let j = 0; j < textArr.length; j++) {
