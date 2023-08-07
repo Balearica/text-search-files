@@ -29,7 +29,7 @@
 		}
 
 		.cover-container {
-			max-width: 90rem!important;
+			max-width: 90rem !important;
 		}
 
 		.list-group-item.active {
@@ -38,6 +38,22 @@
 			border-color: #bec1c4;
 		}
 
+		.upload_dropZone {
+			color: #0f3c4b;
+			background-color: #ffffff;
+			outline: 2px dashed #c1ddef;
+			outline-offset: -12px;
+			transition:
+				outline-offset 0.2s ease-out,
+				outline-color 0.3s ease-in-out,
+				background-color 0.2s ease-out;
+		}
+
+		.upload_dropZone.highlight {
+			outline-offset: -4px;
+			outline-color: #0576bd;
+			background-color: #c8dadf;
+		}
 	</style>
 
 	<!-- Custom styles for this template -->
@@ -51,80 +67,114 @@
 
 		<main>
 			<div class="row" style="padding-top:5rem">
-			<div class="col" style="display:inline-block;width:50%">
-			<h1>Upload Files to Search</h1>
-			<t>Supported formats: <span id="supportedFormats"></span></t>
-			<!-- <p class="lead"></p> -->
-			<div class="mb-3"> 
-				<label class="form-label" for="customFile">Select Files</label> 
-				<input type="file" class="form-control" id="openFileInput" multiple>
-				<label class="form-label mt-2" for="customFile">Select Directories</label> 
-				<input type="file" class="form-control" id="openDirInput" webkitdirectory multiple>
-			</div>
+				<div class="col" style="display:inline-block;width:50%">
+					<h1>Select Files to Search</h1>
+					<t>Supported formats: <span id="supportedFormats"></span></t>
+					<div class="mb-3">
+						<form>
 
-			<div class="accordion" id="accordionExample">
-				<div class="accordion-item">
-				  <h2 class="accordion-header" id="headingOne">
-					<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
-						<span>Processed Files: <span id="fileCountSuccess">0</span></span>
-					</button>
-				  </h2>
-				  <div id="collapseOne" class="accordion-collapse collapse" aria-labelledby="headingOne" data-bs-parent="#accordionExample">
-					<div class="accordion-body">
-						<ul id="fileListSuccess" class="list-group" style="max-height:200px;overflow:auto"></ul>
-					</div>
-				  </div>
-				</div>
-				<div class="accordion-item">
-				  <h2 class="accordion-header" id="headingTwo">
-					<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
-						<span>Failed Files: <span id="fileCountFailed">0</span></span>
-					</button>
-				  </h2>
-				  <div id="collapseTwo" class="accordion-collapse collapse" aria-labelledby="headingTwo" data-bs-parent="#accordionExample">
-					<div class="accordion-body">
-						<ul id="fileListFailed" class="list-group" style="max-height:200px;overflow:auto"></ul>
-					</div>
-				  </div>
-				</div>
-				<div class="accordion-item">
-				  <h2 class="accordion-header" id="headingThree">
-					<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThree" aria-expanded="false" aria-controls="collapseThree">
-						<span>Skipped Files: <span id="fileCountSkipped">0</span></span>
-					</button>
-				  </h2>
-				  <div id="collapseThree" class="accordion-collapse collapse" aria-labelledby="headingThree" data-bs-parent="#accordionExample">
-					<div class="accordion-body">
-						<ul id="fileListSkipped" class="list-group" style="max-height:200px;overflow:auto"></ul>
-					</div>
-				  </div>
-				</div>
-			  </div>
-			
+							<fieldset class="upload_dropZone text-center mb-3 mt-2 p-4" id="uploadDropZone">
 
-			<div class="input-group mt-2">
-				<input type="text" class="form-control" placeholder="Search Files" id="searchTextInput">
-				<span class="input-group-btn">
-					<button class="btn btn-primary" type="button" id="searchTextBtn">Search Files</button>
-				</span>
-			</div>
-	
-			<div class="list-group mt-2" id="matchList">
-			</div>
-		</div>
+								<legend class="visually-hidden">Image uploader</legend>
 
-		<div class="" id="viewerCol" style="width:0px;transition:width .35s ease">
-			<div class="card card-body" id="viewerCard" style="padding:0;border:0px solid rgba(0,0,0,.125);overflow:auto;height:85vh;color: #000000;position:sticky;top:1rem;margin-top:7rem">
-				Some placeholder content for the collapse component. This panel is hidden by default but revealed when the user activates the relevant trigger.
-			  </div>
-		</div>		  
+								<p class="small my-2">Drag &amp; drop files or folders inside dashed region<br><i>or</i>
+								</p>
+
+								<input id="upload_image_logo" data-post-name="image_logo"
+									data-post-url="https://someplace.com/image/uploads/logos/"
+									class="position-absolute invisible" type="file" multiple />
+								<input type="file" class="position-absolute invisible" id="openFileInput" multiple>
+								<input type="file" class="position-absolute invisible" id="openDirInput" webkitdirectory
+									multiple>
+
+
+								<label class="btn btn-primary mb-3" for="openFileInput" style="min-width:8rem">Select
+									Files</label>
+								<div class="upload_gallery d-flex flex-wrap justify-content-center gap-3 mb-0"
+									style="display:inline!important"></div>
+								<label class="btn btn-primary mb-3" for="openDirInput" style="min-width:8rem">Select
+									Folders</label>
+								<div class="upload_gallery d-flex flex-wrap justify-content-center gap-3 mb-0"></div>
+
+							</fieldset>
+
+						</form>
+					</div>
+
+
+
+
+					<div class="accordion" id="accordionExample">
+						<div class="accordion-item">
+							<h2 class="accordion-header" id="headingOne">
+								<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+									data-bs-target="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
+									<span>Processed Files: <span id="fileCountSuccess">0</span></span>
+								</button>
+							</h2>
+							<div id="collapseOne" class="accordion-collapse collapse" aria-labelledby="headingOne"
+								data-bs-parent="#accordionExample">
+								<div class="accordion-body">
+									<ul id="fileListSuccess" class="list-group" style="max-height:200px;overflow:auto">
+									</ul>
+								</div>
+							</div>
+						</div>
+						<div class="accordion-item">
+							<h2 class="accordion-header" id="headingTwo">
+								<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+									data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+									<span>Failed Files: <span id="fileCountFailed">0</span></span>
+								</button>
+							</h2>
+							<div id="collapseTwo" class="accordion-collapse collapse" aria-labelledby="headingTwo"
+								data-bs-parent="#accordionExample">
+								<div class="accordion-body">
+									<ul id="fileListFailed" class="list-group" style="max-height:200px;overflow:auto">
+									</ul>
+								</div>
+							</div>
+						</div>
+						<div class="accordion-item">
+							<h2 class="accordion-header" id="headingThree">
+								<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+									data-bs-target="#collapseThree" aria-expanded="false" aria-controls="collapseThree">
+									<span>Skipped Files: <span id="fileCountSkipped">0</span></span>
+								</button>
+							</h2>
+							<div id="collapseThree" class="accordion-collapse collapse" aria-labelledby="headingThree"
+								data-bs-parent="#accordionExample">
+								<div class="accordion-body">
+									<ul id="fileListSkipped" class="list-group" style="max-height:200px;overflow:auto">
+									</ul>
+								</div>
+							</div>
+						</div>
+					</div>
+
+
+					<div class="input-group mt-2">
+						<input type="text" class="form-control" placeholder="Search Files" id="searchTextInput">
+						<span class="input-group-btn">
+							<button class="btn btn-primary" type="button" id="searchTextBtn">Search Files</button>
+						</span>
+					</div>
+
+					<div class="list-group mt-2" id="matchList">
+					</div>
+				</div>
+
+				<div class="" id="viewerCol" style="width:0px;transition:width .35s ease">
+					<div class="card card-body" id="viewerCard"
+						style="padding:0;border:0px solid rgba(0,0,0,.125);overflow:auto;height:85vh;color: #000000;position:sticky;top:1rem;margin-top:7rem">
+					</div>
+				</div>
 		</main>
 
 		<!-- Keeping empty footer as deleting impacts layout -->
 		<footer class="mt-auto text-white-50">
 		</footer>
 	</div>
-
 
 
 </body>

@@ -3,6 +3,7 @@
 import { initMuPDFWorker } from "./mupdf/mupdf-async.js";
 import { MSGReader } from "./lib/msg.reader.js";
 import { ZipReader, BlobReader, TextWriter } from "./lib/zip.js/index.js";
+import { getAllFileEntries } from "./js/drag-and-drop.js";
 
 const fileListSuccessElem = document.getElementById('fileListSuccess');
 const fileListFailedElem = document.getElementById('fileListFailed');
@@ -16,29 +17,77 @@ const matchListElem = document.getElementById('matchList');
 globalThis.docText = {};
 globalThis.docTextHighlighted = {};
 
+globalThis.zone = document.getElementById("uploadDropZone");
+
+zone.addEventListener('dragover', (event) => {
+    event.preventDefault();
+    event.target.classList.add('highlight');
+});
+
+zone.addEventListener('dragleave', (event) => {
+    event.preventDefault();
+    event.target.classList.remove('highlight');
+});
+
+
+// This is where the drop is handled.
+zone.addEventListener('drop', async (event) => {
+    // Prevent navigation.
+    event.preventDefault();
+    let items = await getAllFileEntries(event.dataTransfer.items);
+
+    const filesPromises = await Promise.allSettled(items.map((x) => new Promise((resolve, reject) => x.file(resolve, reject))));
+    const files = filesPromises.map(x => x.value);
+
+    readFiles(files);
+
+    event.target.classList.remove('highlight');
+
+});
+
+
+const highlight = event => event.target.classList.add('highlight');
+
+const unhighlight = event => event.target.classList.remove('highlight');
+
+zone.addEventListener(event, highlight, false);
+
+['dragenter', 'dragover'].forEach(event => {
+    zone.addEventListener(event, highlight, false);
+})
+
+    // Highlighting drop area when item is dragged over it
+    ;['dragenter', 'dragover'].forEach(event => {
+        zone.addEventListener(event, highlight, false);
+    });
+;['dragleave', 'drop'].forEach(event => {
+    zone.addEventListener(event, unhighlight, false);
+});
+
+
 // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/random
 export function getRandomInt(min, max) {
     min = Math.ceil(min);
     max = Math.floor(max);
     return Math.floor(Math.random() * (max - min) + min); //The maximum is exclusive and the minimum is inclusive
-  }
-  
-function getRandomAlphanum(num){
+}
+
+function getRandomAlphanum(num) {
     let outArr = new Array(num);
-    for(let i=0;i<num;i++){
-      let intI = getRandomInt(1,62);
-      if(intI <= 10){
-        intI = intI + 47;
-      } else if(intI <= 36){
-        intI = intI - 10 + 64;
-      } else {
-        intI = intI - 36 + 96;
-      }
-      outArr[i] = String.fromCharCode(intI);
+    for (let i = 0; i < num; i++) {
+        let intI = getRandomInt(1, 62);
+        if (intI <= 10) {
+            intI = intI + 47;
+        } else if (intI <= 36) {
+            intI = intI - 10 + 64;
+        } else {
+            intI = intI - 36 + 96;
+        }
+        outArr[i] = String.fromCharCode(intI);
     }
     return outArr.join('');
-  }
-  
+}
+
 const w = await initMuPDFWorker();
 
 const readMsg = async (file) => {
@@ -47,9 +96,9 @@ const readMsg = async (file) => {
     globalThis.docText[file.name] += fileData.body;
 
     const attachmentFiles = [];
-    for (let i=0; i<fileData.attachments.length; i++) {
+    for (let i = 0; i < fileData.attachments.length; i++) {
         const attachmentObj = msgReader.getAttachment(i);
-        const attachmentFile = new File([attachmentObj.content], attachmentObj.fileName, {type: attachmentObj.mimeType ? attachmentObj.mimeType : "application/octet-stream"});
+        const attachmentFile = new File([attachmentObj.content], attachmentObj.fileName, { type: attachmentObj.mimeType ? attachmentObj.mimeType : "application/octet-stream" });
         attachmentFiles.push(attachmentFile);
     }
     if (attachmentFiles.length > 0) await readFiles(attachmentFiles);
@@ -87,7 +136,7 @@ const readDocx = async (file) => {
 
             if (!pArr) continue;
 
-            for (let j=0; j < pArr.length; j++) {
+            for (let j = 0; j < pArr.length; j++) {
 
                 // This matches both (1) normal text and (2) text inserted in tracked changes.
                 // Text deleted in tracked changes is not included, as it is in "<w:delText>" tags rather than "<w:t>"
@@ -179,14 +228,14 @@ const readHtml = async (file) => {
     // The text content often has an excessive number of newlines
     const htmlStr = htmlDoc.body.textContent?.replaceAll(/\n{2,}/g, "\n");
 
-    globalThis.docText[file.name] =  htmlStr;
+    globalThis.docText[file.name] = htmlStr;
 
 }
 
 const readTxt = async (file) => {
     const fileStr = await readTextFile(file);
 
-    globalThis.docText[file.name] =  fileStr;
+    globalThis.docText[file.name] = fileStr;
 }
 
 
@@ -247,29 +296,29 @@ async function readFiles(files) {
  * @param {string} search - Search string
  */
 function searchMatch(fileName, index, search) {
-    /** @type {string} */ 
+    /** @type {string} */
     this.fileName = fileName;
-    /** @type {number} */ 
+    /** @type {number} */
     this.index = index;
     // Snippets are always `contextLength`*2 characters long, with `contextLength` characters coming before and after `index` when possible.
     // For example, if `contextLength` is 100 and `index` is `300`, the snippet indices will be `200` and `400`.
     // If `index` is `0` then the snippet indices will be `0` and `200`. 
     // This avoids situations where the same match ends up in multiple snippets. 
-    /** @type {number} */ 
-    this.snippetStartIndex = Math.min(Math.max(index - contextLength, 0), globalThis.docText[fileName].length - contextLength*2);
-    /** @type {number} */ 
-    this.snippetEndIndex = Math.max(Math.min(index + contextLength, globalThis.docText[fileName].length), contextLength*2);
-    /** @type {string} */ 
+    /** @type {number} */
+    this.snippetStartIndex = Math.min(Math.max(index - contextLength, 0), globalThis.docText[fileName].length - contextLength * 2);
+    /** @type {number} */
+    this.snippetEndIndex = Math.max(Math.min(index + contextLength, globalThis.docText[fileName].length), contextLength * 2);
+    /** @type {string} */
     this.search = search;
-    /** @type {string} */ 
+    /** @type {string} */
     this.id = getRandomAlphanum(10);
-  }
+}
 
 function getSnippet(match) {
     const replaceRegex = new RegExp("(" + match.search + ")", "ig");
     return globalThis.docText[match.fileName].slice(match.snippetStartIndex, match.snippetEndIndex).replaceAll(replaceRegex, "<b>$1</b>")
 }
-  
+
 const contextLength = 100;
 
 /**
@@ -359,12 +408,12 @@ async function viewResult(match) {
         // Get all matches for the same file
         const matches = globalThis.matches.filter(x => x.fileName == match.fileName);
         let lastIndex = 0;
-        for (let i=0; i<matches.length; i++) {
+        for (let i = 0; i < matches.length; i++) {
 
             // Snippets are wrapped in <span> tags with unique ids so (1) to highlight them and (2) so they can be scrolled to
             globalThis.docTextHighlighted[matches[i].fileName] += globalThis.docText[matches[i].fileName].slice(lastIndex, matches[i].snippetStartIndex);
-            globalThis.docTextHighlighted[matches[i].fileName] += "<span id='" + matches[i].id + "' style='background-color:yellow'>" ;
-            globalThis.docTextHighlighted[matches[i].fileName] += globalThis.docText[matches[i].fileName].slice(matches[i].snippetStartIndex,matches[i].snippetEndIndex).replaceAll(replaceRegex, "<b>$1</b>") + "</span>";
+            globalThis.docTextHighlighted[matches[i].fileName] += "<span id='" + matches[i].id + "' style='background-color:yellow'>";
+            globalThis.docTextHighlighted[matches[i].fileName] += globalThis.docText[matches[i].fileName].slice(matches[i].snippetStartIndex, matches[i].snippetEndIndex).replaceAll(replaceRegex, "<b>$1</b>") + "</span>";
 
             lastIndex = matches[i].snippetEndIndex;
         }
