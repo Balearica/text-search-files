@@ -14,7 +14,31 @@ const fileCountSkippedElem = document.getElementById('fileCountSkipped');
 const matchListElem = document.getElementById('matchList');
 
 globalThis.docText = {};
+globalThis.docTextHighlighted = {};
 
+// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/random
+export function getRandomInt(min, max) {
+    min = Math.ceil(min);
+    max = Math.floor(max);
+    return Math.floor(Math.random() * (max - min) + min); //The maximum is exclusive and the minimum is inclusive
+  }
+  
+function getRandomAlphanum(num){
+    let outArr = new Array(num);
+    for(let i=0;i<num;i++){
+      let intI = getRandomInt(1,62);
+      if(intI <= 10){
+        intI = intI + 47;
+      } else if(intI <= 36){
+        intI = intI - 10 + 64;
+      } else {
+        intI = intI - 36 + 96;
+      }
+      outArr[i] = String.fromCharCode(intI);
+    }
+    return outArr.join('');
+  }
+  
 const w = await initMuPDFWorker();
 
 const readMsg = async (file) => {
@@ -220,16 +244,31 @@ async function readFiles(files) {
 /**
  * @param {string} fileName - Name of file
  * @param {number} index - Index of the start of the snippet
- * @param {string} snippet - Short text with matching term and some context to display in the search results
+ * @param {string} search - Search string
  */
-function searchMatch(fileName, index, snippet) {
+function searchMatch(fileName, index, search) {
     /** @type {string} */ 
     this.fileName = fileName;
     /** @type {number} */ 
     this.index = index;
+    // Snippets are always `contextLength`*2 characters long, with `contextLength` characters coming before and after `index` when possible.
+    // For example, if `contextLength` is 100 and `index` is `300`, the snippet indices will be `200` and `400`.
+    // If `index` is `0` then the snippet indices will be `0` and `200`. 
+    // This avoids situations where the same match ends up in multiple snippets. 
+    /** @type {number} */ 
+    this.snippetStartIndex = Math.min(Math.max(index - contextLength, 0), globalThis.docText[fileName].length - contextLength*2);
+    /** @type {number} */ 
+    this.snippetEndIndex = Math.max(Math.min(index + contextLength, globalThis.docText[fileName].length), contextLength*2);
     /** @type {string} */ 
-    this.snippet = snippet;
+    this.search = search;
+    /** @type {string} */ 
+    this.id = getRandomAlphanum(10);
   }
+
+function getSnippet(match) {
+    const replaceRegex = new RegExp("(" + match.search + ")", "ig");
+    return globalThis.docText[match.fileName].slice(match.snippetStartIndex, match.snippetEndIndex).replaceAll(replaceRegex, "<b>$1</b>")
+}
   
 const contextLength = 100;
 
@@ -251,19 +290,15 @@ function searchText(fileName, search) {
     const matches = [];
     let lastIndexIncluded = 0;
     for (let i = 0; i < indices.length; i++) {
-        // Matches are omitted if they are already included in the context for another match
-        if (i == 0 || indices[i] > (lastIndexIncluded + contextLength - 10)) {
+        const match = new searchMatch(fileName, indices[i], search);
 
-            const matchText = text.slice(Math.max(0, indices[i] - contextLength), Math.min(text.length, indices[i] + contextLength));
-            const replaceRegex = new RegExp("(" + search + ")", "ig");
-
-            matches.push(new searchMatch(fileName, indices[i], matchText.replaceAll(replaceRegex, "<b>$1</b>")));
-            lastIndexIncluded = indices[i];
+        if (i == 0 || indices[i] + search.length > lastIndexIncluded) {
+            matches.push(match);
+            lastIndexIncluded = match.snippetEndIndex;
         }
     }
 
     return matches;
-
 
 }
 
@@ -272,6 +307,7 @@ globalThis.matches = [];
 async function searchDocs(search) {
     matchListElem.innerHTML = "";
     globalThis.matches = [];
+    globalThis.docTextHighlighted = {};
     for (const [key, value] of Object.entries(globalThis.docText)) {
         globalThis.matches.push(...searchText(key, search));
     }
@@ -284,7 +320,7 @@ async function searchDocs(search) {
         entry.addEventListener("click", () => viewResult(globalThis.matches[j]));
 
 
-        entry.innerHTML = `<p class="mb-1">${globalThis.matches[j].snippet}</p>
+        entry.innerHTML = `<p class="mb-1">${getSnippet(globalThis.matches[j])}</p>
                 <small>${globalThis.matches[j].fileName}</small>`;
 
         matchListElem.appendChild(entry);
@@ -317,16 +353,30 @@ async function viewResult(match) {
 
     }
 
-    // The snippet is wrapped in <span> tags as this allows for detection of the height of the match in the viewer
-    // and allows the scoll position to be set.
-    let innerHTML = globalThis.docText[match.fileName].slice(0,match.index) + "<span id='snippetText' style='background-color:yellow'>" + globalThis.docText[match.fileName].slice(match.index,match.index+200) + "</span>" + globalThis.docText[match.fileName].slice(match.index+200);
+    if (!globalThis.docTextHighlighted[match.fileName]) {
+        globalThis.docTextHighlighted[match.fileName] = "";
+        const replaceRegex = new RegExp("(" + match.search + ")", "ig");
+        // Get all matches for the same file
+        const matches = globalThis.matches.filter(x => x.fileName == match.fileName);
+        let lastIndex = 0;
+        for (let i=0; i<matches.length; i++) {
 
-    innerHTML = innerHTML.replaceAll(/\n/g, "<br/>");
+            // Snippets are wrapped in <span> tags with unique ids so (1) to highlight them and (2) so they can be scrolled to
+            globalThis.docTextHighlighted[matches[i].fileName] += globalThis.docText[matches[i].fileName].slice(lastIndex, matches[i].snippetStartIndex);
+            globalThis.docTextHighlighted[matches[i].fileName] += "<span id='" + matches[i].id + "' style='background-color:yellow'>" ;
+            globalThis.docTextHighlighted[matches[i].fileName] += globalThis.docText[matches[i].fileName].slice(matches[i].snippetStartIndex,matches[i].snippetEndIndex).replaceAll(replaceRegex, "<b>$1</b>") + "</span>";
 
-    document.getElementById("viewerCard").innerHTML = "<span>" + innerHTML + "</span>";
+            lastIndex = matches[i].snippetEndIndex;
+        }
+        globalThis.docTextHighlighted[match.fileName] += globalThis.docText[match.fileName].slice(lastIndex);
+
+        globalThis.docTextHighlighted[match.fileName] = globalThis.docTextHighlighted[match.fileName].replaceAll(/\n/g, "<br/>");
+    }
+
+    document.getElementById("viewerCard").innerHTML = "<span>" + globalThis.docTextHighlighted[match.fileName] + "</span>";
 
     // Position the match ~1/3 of the way down the viewer
-    document.getElementById("viewerCard").scrollTop = document.getElementById("snippetText").offsetTop - document.getElementById("viewerCard").offsetHeight / 3;
+    document.getElementById("viewerCard").scrollTop = document.getElementById(match.id).offsetTop - document.getElementById("viewerCard").offsetHeight / 3;
 
 
 }
