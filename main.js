@@ -45,6 +45,7 @@ zone.addEventListener('drop', async (event) => {
 
 });
 
+document.getElementById("viewerSpacer").setAttribute("style", "height:" + document.getElementById("titleArea").offsetHeight + "px");
 
 const highlight = event => event.target.classList.add('highlight');
 

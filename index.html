@@ -68,12 +68,14 @@
 		<main>
 			<div class="row" style="padding-top:5rem">
 				<div class="col" style="display:inline-block;width:50%">
-					<h1>Select Files to Search</h1>
-					<t>Supported formats: <span id="supportedFormats"></span></t>
+					<div class="pb-2" id="titleArea">
+						<h1>Select Files to Search</h1>
+						<t>Supported formats: <span id="supportedFormats"></span></t>	
+					</div>
 					<div class="mb-3">
-						<form>
+						<div class="card">
 
-							<fieldset class="upload_dropZone text-center mb-3 mt-2 p-4" id="uploadDropZone">
+							<fieldset class="upload_dropZone text-center p-4" id="uploadDropZone">
 
 								<legend class="visually-hidden">Image uploader</legend>
 
@@ -98,7 +100,7 @@
 
 							</fieldset>
 
-						</form>
+						</div>
 					</div>
 
 
@@ -165,8 +167,11 @@
 				</div>
 
 				<div class="" id="viewerCol" style="width:0px;transition:width .35s ease">
+					<div id="viewerSpacer">
+
+					</div>
 					<div class="card card-body" id="viewerCard"
-						style="padding:0;border:0px solid rgba(0,0,0,.125);overflow:auto;height:85vh;color: #000000;position:sticky;top:1rem;margin-top:7rem">
+						style="padding:0;border:0px solid rgba(0,0,0,.125);overflow:auto;height:85vh;color: #000000;position:sticky;top:1rem;">
 					</div>
 				</div>
 		</main>
