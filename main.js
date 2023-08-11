@@ -252,6 +252,12 @@ const read = {
     xlsx: readXlsx,
 }
 
+// Opt-in to bootstrap tooltip feature
+// https://getbootstrap.com/docs/5.0/components/tooltips/
+var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+  return new bootstrap.Tooltip(tooltipTriggerEl);
+})
 
 async function readFiles(files) {
     const elemArr = [];
@@ -280,8 +286,16 @@ async function readFiles(files) {
                 await read[ext](file);
                 // Remove excessive newline characters to improve readability
                 globalThis.docText[file.name] = globalThis.docText[file.name].replaceAll(/(\n\s*){3,}/g, "\n\n");
-                fileListSuccessElem?.appendChild(elemArr[i]);
-                fileCountSuccessElem.textContent = String(parseInt(fileCountSuccessElem.textContent) + 1);
+
+                // In the case of .pdf files, the file is marked as "skipped" rather than "success" if no text was extracted.
+                // This is because the PDF is assumed to be an image-native PDF that would require OCR to extract.
+                if (ext == "pdf" && globalThis.docText[file.name] === "") {
+                    fileListSkippedElem?.appendChild(elemArr[i]);
+                    fileCountSkippedElem.textContent = String(parseInt(fileCountSkippedElem.textContent) + 1);        
+                } else {
+                    fileListSuccessElem?.appendChild(elemArr[i]);
+                    fileCountSuccessElem.textContent = String(parseInt(fileCountSuccessElem.textContent) + 1);    
+                }
             } catch (error) {
                 fileListFailedElem?.appendChild(elemArr[i]);
                 fileCountFailedElem.textContent = String(parseInt(fileCountFailedElem.textContent) + 1);
