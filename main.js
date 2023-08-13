@@ -22,6 +22,32 @@ globalThis.docTextHighlighted = {};
 globalThis.zone = document.getElementById("uploadDropZone");
 
 
+const importProgressCollapseElem = document.getElementById("import-progress-collapse");
+globalThis.progressCollapseObj = new bootstrap.Collapse(importProgressCollapseElem, { toggle: false });
+const progressBar = importProgressCollapseElem.getElementsByClassName("progress-bar")[0];
+const progress = {
+    max: 0,
+    value: 0,
+    elem: progressBar,
+    show: () => progressCollapseObj.show(),
+    hide: () => progressCollapseObj.hide(),
+    setMax: async function (max) {
+        this.max = max;
+        this.elem.setAttribute("aria-valuemax", this.max);
+        this.elem.setAttribute("style", "width: " + ((this.value) / this.max * 100) + "%");
+        await new Promise((r) => setTimeout(r, 0));
+    },
+    setValue: async function (value) {
+        this.value++;
+        if ((this.value) % 5 == 0 || this.value == this.max) {
+            this.elem.setAttribute("aria-valuenow", this.value.toString());
+            this.elem.setAttribute("style", "width: " + (this.value / this.max * 100) + "%");
+            await new Promise((r) => setTimeout(r, 0));
+        }
+    }
+}
+
+
 async function initMuPDFScheduler(workers = 3) {
     const scheduler = Tesseract.createScheduler();
     scheduler["workers"] = new Array(workers);
@@ -289,6 +315,11 @@ async function readFiles(files) {
 
     const start = Date.now();
 
+    // The files are added to the existing total.
+    // This is necessary as this function may be called recursively if files contain additional embedded files. 
+    progress.setMax(progress.max + files.length);
+    progress.show();
+
     const elemArr = [];
     for (let i = 0; i < files.length; i++) {
         const li = document.createElement("li");
@@ -309,28 +340,30 @@ async function readFiles(files) {
             fileListSkippedElem?.appendChild(elemArr[i]);
             fileCountSkippedElem.textContent = String(parseInt(fileCountSkippedElem.textContent) + 1);
         } else {
-                // TODO: This should eventually use promises + workers for better performance, but this will require edits.
-                // Notably, as the same mupdf worker is reused, if run in asyc the PDF may be replaced before readPdf is finished reading it.
-                // The other functions are not set up to run in workers.
-                promiseArr[i] = read[ext](file).then(() => {
-                    // Remove excessive newline characters to improve readability
-                    globalThis.docText[file.name] = globalThis.docText[file.name].replaceAll(/(\n\s*){3,}/g, "\n\n");
+            // TODO: This should eventually use promises + workers for better performance, but this will require edits.
+            // Notably, as the same mupdf worker is reused, if run in asyc the PDF may be replaced before readPdf is finished reading it.
+            // The other functions are not set up to run in workers.
+            promiseArr[i] = read[ext](file).then(() => {
+                // Remove excessive newline characters to improve readability
+                globalThis.docText[file.name] = globalThis.docText[file.name].replaceAll(/(\n\s*){3,}/g, "\n\n");
 
-                    // In the case of .pdf files, the file is marked as "skipped" rather than "success" if no text was extracted.
-                    // This is because the PDF is assumed to be an image-native PDF that would require OCR to extract.
-                    if (ext == "pdf" && globalThis.docText[file.name] === "") {
-                        fileListSkippedElem?.appendChild(elemArr[i]);
-                        fileCountSkippedElem.textContent = String(parseInt(fileCountSkippedElem.textContent) + 1);
-                    } else {
-                        fileListSuccessElem?.appendChild(elemArr[i]);
-                        fileCountSuccessElem.textContent = String(parseInt(fileCountSuccessElem.textContent) + 1);
-                    }
-                }).catch((error) => {
-                    console.log(error);
-                    fileListFailedElem?.appendChild(elemArr[i]);
-                    fileCountFailedElem.textContent = String(parseInt(fileCountFailedElem.textContent) + 1);
-    
-                });
+                // In the case of .pdf files, the file is marked as "skipped" rather than "success" if no text was extracted.
+                // This is because the PDF is assumed to be an image-native PDF that would require OCR to extract.
+                if (ext == "pdf" && globalThis.docText[file.name] === "") {
+                    fileListSkippedElem?.appendChild(elemArr[i]);
+                    fileCountSkippedElem.textContent = String(parseInt(fileCountSkippedElem.textContent) + 1);
+                } else {
+                    fileListSuccessElem?.appendChild(elemArr[i]);
+                    fileCountSuccessElem.textContent = String(parseInt(fileCountSuccessElem.textContent) + 1);
+                }
+            }).catch((error) => {
+                console.log(error);
+                fileListFailedElem?.appendChild(elemArr[i]);
+                fileCountFailedElem.textContent = String(parseInt(fileCountFailedElem.textContent) + 1);
+
+            }).finally(() => {
+                progress.setValue(progress.value + 1);
+            });
         }
 
     }
