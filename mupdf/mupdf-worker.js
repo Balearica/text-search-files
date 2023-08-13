@@ -287,6 +287,23 @@ mupdf.pageTextJSON = function (doc, page, dpi, skip_text_invis = false) {
 mupdf.search = function (doc, page, dpi, needle) {
 	return JSON.parse(mupdf.searchJSON(doc, page, dpi, needle));
 }
+
+// Open document, extract the text, and close document in a single function call.
+// This is required for mupdf to work with the scheduler code, as the schedulers assign "jobs" (single function calls) to workers (essentially) at random,
+// so the only way to guarantee everything happens within the same worker is to combine it into a single function. 
+// Otherwise, a "pageText" job may come from a worker with a different .pdf file than intended. 
+mupdf.openDocumentExtractText = function (data, magic) {
+	const doc = mupdf.openDocument(data, magic);
+	const n = mupdf.countPages(doc);
+	let text = "";
+	for (let i = 1; i <= n; ++i) {
+		text += mupdf.pageText(doc, i, 72, false);
+	}
+	mupdf.freeDocument(doc);
+	return text;
+}
+
+
 })().catch((x) => {throw x});
 
 addEventListener('message', (event) => {
