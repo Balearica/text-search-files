@@ -41,6 +41,8 @@ async function getMuPDFScheduler() {
     return globalThis.muPDFScheduler;
 }
 
+initMuPDFScheduler();
+
 zone.addEventListener('dragover', (event) => {
     event.preventDefault();
     event.target.classList.add('highlight');
@@ -134,6 +136,15 @@ const readPdf = async (file) => {
     const scheduler = await getMuPDFScheduler();
 
     globalThis.docText[file.name] = await scheduler.addJob("openDocumentExtractText", [fileData, "file.pdf"]);
+
+    // PDF portfolios are essentially archive files with a .pdf extension
+    // Unfortunately, they do not throw an error when read as a standard PDF files, but rather (at least when created using Acrobat)
+    // show a page advising the user to install Acrobat.  Therefore, we detect this page and thrown an error.
+    if (globalThis.docText[file.name].length < 500 && /^For the best experience, open this PDF portfolio in/.test(docText["Portfolio1.pdf"])) {
+        globalThis.docText[file.name] = "";
+        throw "PDF portfolio detected (not supported)"
+    }
+
 }
 
 const readDocx = async (file) => {
