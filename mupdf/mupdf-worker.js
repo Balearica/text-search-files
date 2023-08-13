@@ -111,7 +111,7 @@ let ready = false;
 	mupdf.writePDF = Module.cwrap('writePDF', 'null', ['number', 'number', 'number', 'number']);
     mupdf.getLastDrawData = Module.cwrap('getLastDrawData', 'number', []);
     mupdf.getLastDrawSize = Module.cwrap('getLastDrawSize', 'number', []);
-    wasm_pageText = Module.cwrap('pageText', 'string', ['number', 'number', 'number', 'number']);
+    wasm_pageText = Module.cwrap('pageText', 'string', ['number', 'number', 'number', 'number', 'number']);
     mupdf.searchJSON = Module.cwrap('search', 'string', ['number', 'number', 'number', 'string']);
     mupdf.loadOutline = Module.cwrap('loadOutline', 'number', ['number']);
     mupdf.freeOutline = Module.cwrap('freeOutline', null, ['number']);
@@ -119,6 +119,7 @@ let ready = false;
     mupdf.outlinePage = Module.cwrap('outlinePage', 'number', ['number', 'number']);
     mupdf.outlineDown = Module.cwrap('outlineDown', 'number', ['number']);
     mupdf.outlineNext = Module.cwrap('outlineNext', 'number', ['number']);
+    mupdf.checkNativeText = Module.cwrap('checkNativeText', 'number', ['number']);
     postMessage("READY");
     ready = true;
   };
@@ -263,24 +264,24 @@ mupdf.pageLinks = function (doc, page, dpi) {
 	return JSON.parse(mupdf.pageLinksJSON(doc, page, dpi));
 }
 
-mupdf.pageText = function (doc, page, dpi) {
-	return wasm_pageText(doc, page, dpi, 0);
+mupdf.pageText = function (doc, page, dpi, skip_text_invis = false) {
+	return wasm_pageText(doc, page, dpi, 0, skip_text_invis);
 }
 
-mupdf.pageTextHTML = function (doc, page, dpi) {
-	return wasm_pageText(doc, page, dpi, 1);
+mupdf.pageTextHTML = function (doc, page, dpi, skip_text_invis = false) {
+	return wasm_pageText(doc, page, dpi, 1, skip_text_invis);
 }
 
-mupdf.pageTextXHTML = function (doc, page, dpi) {
-	return wasm_pageText(doc, page, dpi, 2);
+mupdf.pageTextXHTML = function (doc, page, dpi, skip_text_invis = false) {
+	return wasm_pageText(doc, page, dpi, 2, skip_text_invis);
 }
 
-mupdf.pageTextXML = function (doc, page, dpi) {
-	return wasm_pageText(doc, page, dpi, 3);
+mupdf.pageTextXML = function (doc, page, dpi, skip_text_invis = false) {
+	return wasm_pageText(doc, page, dpi, 3, skip_text_invis);
 }
 
-mupdf.pageTextJSON = function (doc, page, dpi) {
-	return JSON.parse(wasm_pageText(doc, page, dpi, 4));
+mupdf.pageTextJSON = function (doc, page, dpi, skip_text_invis = false) {
+	return JSON.parse(wasm_pageText(doc, page, dpi, 4, skip_text_invis));
 }
 
 mupdf.search = function (doc, page, dpi, needle) {
