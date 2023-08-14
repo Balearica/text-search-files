@@ -217,7 +217,7 @@ const readXlsx = async (file) => {
     const textWriter = new TextWriter();
 
     for (let i = 0; i < entries.length; i++) {
-        if (['xl/workbook.xml', 'xl/sharedStrings.xml'].includes(entries[i].filename)) {
+        if (['xl/workbook.xml', 'xl/sharedStrings.xml'].includes(entries[i].filename) || /xl\/worksheets\/[^\/]+.xml/.test(entries[i].filename)) {
             const xmlStr = await entries[i].getData(new TextWriter());
             // This matches both (1) normal text and (2) text inserted in tracked changes.
             // Text deleted in tracked changes is not included, as it is in "<w:delText>" tags rather than "<w:t>"
