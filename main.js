@@ -221,7 +221,7 @@ const readXlsx = async (file) => {
             const xmlStr = await entries[i].getData(new TextWriter());
             // This matches both (1) normal text and (2) text inserted in tracked changes.
             // Text deleted in tracked changes is not included, as it is in "<w:delText>" tags rather than "<w:t>"
-            const textArr = xmlStr.match(/(?<=\<t[^>\/]{0,30}?\>)[\s\S]+?(?=\<\/t\>)/g);
+            const textArr = xmlStr.match(/(?<=\<t[^>\/]{0,200}?\>)[\s\S]+?(?=\<\/t\>)/g);
             if (!textArr) continue;
 
             for (let j = 0; j < textArr.length; j++) {
@@ -246,7 +246,7 @@ const readPptx = async (file) => {
             const xmlStr = await entries[i].getData(new TextWriter());
             // This matches both (1) normal text and (2) text inserted in tracked changes.
             // Text deleted in tracked changes is not included, as it is in "<w:delText>" tags rather than "<w:t>"
-            const textArr = xmlStr.match(/(?<=\<a:t[^>\/]{0,30}?\>)[\s\S]+?(?=\<\/a:t\>)/g);
+            const textArr = xmlStr.match(/(?<=\<a:t[^>\/]{0,200}?\>)[\s\S]+?(?=\<\/a:t\>)/g);
             if (!textArr) continue;
 
             for (let j = 0; j < textArr.length; j++) {
