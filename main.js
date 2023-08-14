@@ -339,6 +339,7 @@ async function readFiles(files) {
         if (!read[ext]) {
             fileListSkippedElem?.appendChild(elemArr[i]);
             fileCountSkippedElem.textContent = String(parseInt(fileCountSkippedElem.textContent) + 1);
+            progress.setValue(progress.value + 1);
         } else {
             // TODO: This should eventually use promises + workers for better performance, but this will require edits.
             // Notably, as the same mupdf worker is reused, if run in asyc the PDF may be replaced before readPdf is finished reading it.
