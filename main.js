@@ -89,7 +89,9 @@ zone.addEventListener('drop', async (event) => {
     const filesPromises = await Promise.allSettled(items.map((x) => new Promise((resolve, reject) => x.file(resolve, reject))));
     const files = filesPromises.map(x => x.value);
 
-    readFiles(files);
+    const filePaths = items.map((x) => x.fullPath.replace(/^\//, ""));
+
+    readFiles(files, filePaths);
 
     event.target.classList.remove('highlight');
 
@@ -144,7 +146,7 @@ const w = await initMuPDFWorker();
 const readMsg = async (file) => {
     const msgReader = new MSGReader(await file.arrayBuffer());
     const fileData = msgReader.getFileData();
-    globalThis.docText[file.name] += fileData.body;
+    const text = fileData.body;
 
     const attachmentFiles = [];
     for (let i = 0; i < fileData.attachments.length; i++) {
@@ -153,6 +155,7 @@ const readMsg = async (file) => {
         attachmentFiles.push(attachmentFile);
     }
     if (attachmentFiles.length > 0) await readFiles(attachmentFiles);
+    return text;
 }
 
 const readPdf = async (file) => {
@@ -161,16 +164,17 @@ const readPdf = async (file) => {
 
     const scheduler = await getMuPDFScheduler();
 
-    globalThis.docText[file.name] = await scheduler.addJob("openDocumentExtractText", [fileData, "file.pdf"]);
+    let text = await scheduler.addJob("openDocumentExtractText", [fileData, "file.pdf"]);
 
     // PDF portfolios are essentially archive files with a .pdf extension
     // Unfortunately, they do not throw an error when read as a standard PDF files, but rather (at least when created using Acrobat)
     // show a page advising the user to install Acrobat.  Therefore, we detect this page and thrown an error.
-    if (globalThis.docText[file.name].length < 500 && /^For the best experience, open this PDF portfolio in/.test(docText["Portfolio1.pdf"])) {
-        globalThis.docText[file.name] = "";
+    if (text.length < 500 && /^For the best experience, open this PDF portfolio in/.test(text)) {
+        text = "";
         throw "PDF portfolio detected (not supported)"
     }
 
+    return text;
 }
 
 const readDocx = async (file) => {
@@ -178,6 +182,7 @@ const readDocx = async (file) => {
     const zipReader = new ZipReader(zipFileReader);
     const entries = await zipReader.getEntries();
     const textWriter = new TextWriter();
+    let text = "";
 
     for (let i = 0; i < entries.length; i++) {
         if (['word/document.xml', 'word/footnotes.xml', 'word/endnotes.xml', 'word/comments.xml'].includes(entries[i].filename)) {
@@ -197,9 +202,9 @@ const readDocx = async (file) => {
                 if (!textArr) continue;
 
                 for (let k = 0; k < textArr.length; k++) {
-                    globalThis.docText[file.name] += textArr[k] + " ";
+                    text += textArr[k] + " ";
                 }
-                globalThis.docText[file.name] += "\n";
+                text += "\n";
 
             }
 
@@ -208,6 +213,7 @@ const readDocx = async (file) => {
 
     await zipReader.close();
 
+    return text;
 }
 
 const readXlsx = async (file) => {
@@ -215,6 +221,7 @@ const readXlsx = async (file) => {
     const zipReader = new ZipReader(zipFileReader);
     const entries = await zipReader.getEntries();
     const textWriter = new TextWriter();
+    let text = "";
 
     for (let i = 0; i < entries.length; i++) {
         if (['xl/workbook.xml', 'xl/sharedStrings.xml'].includes(entries[i].filename) || /xl\/worksheets\/[^\/]+.xml/.test(entries[i].filename)) {
@@ -225,14 +232,15 @@ const readXlsx = async (file) => {
             if (!textArr) continue;
 
             for (let j = 0; j < textArr.length; j++) {
-                globalThis.docText[file.name] += textArr[j] + " ";
+                text += textArr[j] + " ";
             }
-            globalThis.docText[file.name] += "\n";
+            text += "\n";
         }
     }
 
     await zipReader.close();
 
+    return text;
 }
 
 const readPptx = async (file) => {
@@ -240,6 +248,7 @@ const readPptx = async (file) => {
     const zipReader = new ZipReader(zipFileReader);
     const entries = await zipReader.getEntries();
     const textWriter = new TextWriter();
+    let text = "";
 
     for (let i = 0; i < entries.length; i++) {
         if (/ppt\/slides\/[^\/]+.xml/.test(entries[i].filename) || /ppt\/notesSlides\/[^\/]+.xml/.test(entries[i].filename) || /ppt\/comments\/[^\/]+.xml/.test(entries[i].filename)) {
@@ -250,17 +259,18 @@ const readPptx = async (file) => {
             if (!textArr) continue;
 
             for (let j = 0; j < textArr.length; j++) {
-                globalThis.docText[file.name] += textArr[j] + " ";
+                text += textArr[j] + " ";
             }
-            globalThis.docText[file.name] += "\n";
+            text += "\n";
         }
     }
 
     await zipReader.close();
 
+    return text;
 }
 
-function readTextFile(file) {
+function readTxt(file) {
     return new Promise((resolve, reject) => {
         let reader = new FileReader();
         reader.onload = () => {
@@ -273,24 +283,16 @@ function readTextFile(file) {
 
 
 const readHtml = async (file) => {
-    let fileStr = await readTextFile(file);
+    let fileStr = await readTxt(file);
     // Delete any embedded Javascript code
     fileStr = fileStr.replaceAll(/\<script[^>]*?\>[\s\S]*?\<\/script\>/gi, "");
     const parser = new DOMParser();
     const htmlDoc = parser.parseFromString(fileStr, "text/html");
     // The text content often has an excessive number of newlines
-    const htmlStr = htmlDoc.body.textContent?.replaceAll(/\n{2,}/g, "\n");
+    const text = htmlDoc.body.textContent?.replaceAll(/\n{2,}/g, "\n");
 
-    globalThis.docText[file.name] = htmlStr;
-
+    return text;
 }
-
-const readTxt = async (file) => {
-    const fileStr = await readTextFile(file);
-
-    globalThis.docText[file.name] = fileStr;
-}
-
 
 // This object contains the mapping between file extensions and read functions.
 const read = {
@@ -311,7 +313,12 @@ var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
     return new bootstrap.Tooltip(tooltipTriggerEl);
 })
 
-async function readFiles(files) {
+/**
+ * @param {File[]} files - Name of file
+ * @param {string[]} filePaths - when using the drag-and-drop interface, file paths must be passed manually as an array
+ *      as the File objects lack valid directory info.  This argument can be left blank when using a standard file input.
+ */
+async function readFiles(files, filePaths = []) {
 
     const start = Date.now();
 
@@ -332,7 +339,10 @@ async function readFiles(files) {
     for (let i = 0; i < files.length; i++) {
 
         const file = files[i];
-        globalThis.docText[file.name] = "";
+
+        const key = filePaths[i] || file.webkitRelativePath || file.name;
+
+        globalThis.docText[key] = "";
 
         const ext = file.name.match(/\.(\w{1,5})$/)?.[1]?.toLowerCase();
 
@@ -344,13 +354,13 @@ async function readFiles(files) {
             // TODO: This should eventually use promises + workers for better performance, but this will require edits.
             // Notably, as the same mupdf worker is reused, if run in asyc the PDF may be replaced before readPdf is finished reading it.
             // The other functions are not set up to run in workers.
-            promiseArr[i] = read[ext](file).then(() => {
+            promiseArr[i] = read[ext](file).then((text) => {
                 // Remove excessive newline characters to improve readability
-                globalThis.docText[file.name] = globalThis.docText[file.name].replaceAll(/(\n\s*){3,}/g, "\n\n");
+                globalThis.docText[key] = text.replaceAll(/(\n\s*){3,}/g, "\n\n");
 
                 // In the case of .pdf files, the file is marked as "skipped" rather than "success" if no text was extracted.
                 // This is because the PDF is assumed to be an image-native PDF that would require OCR to extract.
-                if (ext == "pdf" && globalThis.docText[file.name] === "") {
+                if (ext == "pdf" && globalThis.docText[key] === "") {
                     fileListSkippedElem?.appendChild(elemArr[i]);
                     fileCountSkippedElem.textContent = String(parseInt(fileCountSkippedElem.textContent) + 1);
                 } else {
@@ -495,7 +505,7 @@ async function viewResult(match) {
     if (!globalThis.initViewer) {
         document.getElementById("viewerCol").style.width = "50%";
         // The location of the highlighted text is not detected correctly without waiting for the animation
-        await new Promise((r) => setTimeout(r, 100));
+        await new Promise((r) => setTimeout(r, 250));
         globalThis.initViewer = true;
 
     }
