@@ -402,7 +402,12 @@ function searchMatch(fileName, index, search) {
 
 function getSnippet(match) {
     const replaceRegex = new RegExp("(" + match.search + ")", "ig");
-    return globalThis.docText[match.fileName].slice(match.snippetStartIndex, match.snippetEndIndex).replaceAll(replaceRegex, "<b>$1</b>")
+    const snippetText = document.createElement("p");
+    snippetText.setAttribute("class", 'mb-1');
+    snippetText.textContent = globalThis.docText[match.fileName].slice(match.snippetStartIndex, match.snippetEndIndex);
+    snippetText.innerHTML = snippetText.innerHTML.replaceAll(replaceRegex, "<b>$1</b>");
+
+    return snippetText;
 }
 
 const contextLength = 100;
@@ -454,9 +459,12 @@ async function searchDocs(search) {
 
         entry.addEventListener("click", () => viewResult(globalThis.matches[j]));
 
+        entry.appendChild(getSnippet(globalThis.matches[j]));
 
-        entry.innerHTML = `<p class="mb-1">${getSnippet(globalThis.matches[j])}</p>
-                <small>${globalThis.matches[j].fileName}</small>`;
+        const fileName = document.createElement("small");
+        fileName.textContent = globalThis.matches[j].fileName;
+
+        entry.appendChild(fileName);
 
         matchListElem.appendChild(entry);
     }
@@ -466,7 +474,11 @@ async function searchDocs(search) {
         const entry = document.createElement('a');
         entry.setAttribute("class", "list-group-item list-group-item-action flex-column align-items-start");
 
-        entry.innerHTML = `<p class="mb-1">[No Results]</p>`;
+        const elem = document.createElement("p");
+        elem.setAttribute("class", "mb-1");
+        elem.textContent = "[No Results]";
+
+        entry.appendChild(elem);
 
         matchListElem.appendChild(entry);
     }
@@ -489,26 +501,41 @@ async function viewResult(match) {
     }
 
     if (!globalThis.docTextHighlighted[match.fileName]) {
-        globalThis.docTextHighlighted[match.fileName] = "";
+        globalThis.docTextHighlighted[match.fileName] = document.createElement("span");
         const replaceRegex = new RegExp("(" + match.search + ")", "ig");
         // Get all matches for the same file
         const matches = globalThis.matches.filter(x => x.fileName == match.fileName);
         let lastIndex = 0;
         for (let i = 0; i < matches.length; i++) {
 
+            // Add text after last match and before match i
+            const preText = document.createElement("span");
+            preText.setAttribute("style", 'white-space: pre-line');
+            preText.textContent = globalThis.docText[matches[i].fileName].slice(lastIndex, matches[i].snippetStartIndex);
+            globalThis.docTextHighlighted[match.fileName].appendChild(preText);
+
             // Snippets are wrapped in <span> tags with unique ids so (1) to highlight them and (2) so they can be scrolled to
-            globalThis.docTextHighlighted[matches[i].fileName] += globalThis.docText[matches[i].fileName].slice(lastIndex, matches[i].snippetStartIndex);
-            globalThis.docTextHighlighted[matches[i].fileName] += "<span id='" + matches[i].id + "' style='background-color:yellow'>";
-            globalThis.docTextHighlighted[matches[i].fileName] += globalThis.docText[matches[i].fileName].slice(matches[i].snippetStartIndex, matches[i].snippetEndIndex).replaceAll(replaceRegex, "<b>$1</b>") + "</span>";
+            const snippetText = document.createElement("span");
+            snippetText.setAttribute("id", matches[i].id);
+            snippetText.setAttribute("style", 'white-space: pre-line;background-color:yellow');
+            snippetText.textContent = globalThis.docText[matches[i].fileName].slice(matches[i].snippetStartIndex, matches[i].snippetEndIndex);
+            snippetText.innerHTML = snippetText.innerHTML.replaceAll(replaceRegex, "<strong>$1</strong>");
+            globalThis.docTextHighlighted[match.fileName].appendChild(snippetText);
 
             lastIndex = matches[i].snippetEndIndex;
         }
-        globalThis.docTextHighlighted[match.fileName] += globalThis.docText[match.fileName].slice(lastIndex);
 
-        globalThis.docTextHighlighted[match.fileName] = globalThis.docTextHighlighted[match.fileName].replaceAll(/\n/g, "<br/>");
+        // Add text after final match
+        const postText = document.createElement("span");
+        postText.setAttribute("style", 'white-space: pre-line');
+        postText.textContent = globalThis.docText[match.fileName].slice(lastIndex);
+        globalThis.docTextHighlighted[match.fileName].appendChild(postText);
+
     }
+      
 
-    document.getElementById("viewerCard").innerHTML = "<span>" + globalThis.docTextHighlighted[match.fileName] + "</span>";
+    document.getElementById("viewerCard").replaceChild(globalThis.docTextHighlighted[match.fileName], document.getElementById("viewerCard").firstChild)
+
 
     // Position the match ~1/3 of the way down the viewer
     document.getElementById("viewerCard").scrollTop = document.getElementById(match.id).offsetTop - document.getElementById("viewerCard").offsetHeight / 3;
