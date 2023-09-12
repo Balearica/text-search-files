@@ -16,6 +16,7 @@ const fileCountSkippedElem = document.getElementById('fileCountSkipped');
 
 const matchListElem = document.getElementById('matchList');
 
+globalThis.docNames = {};
 globalThis.docText = {};
 globalThis.docTextHighlighted = {};
 
@@ -330,7 +331,7 @@ async function readFiles(files, filePaths = []) {
     const elemArr = [];
     for (let i = 0; i < files.length; i++) {
         const li = document.createElement("li");
-        li.innerHTML = files[i].name;
+        li.innerText = files[i].name;
         li.setAttribute("class", "list-group-item");
         elemArr.push(li);
     }
@@ -347,6 +348,7 @@ async function readFiles(files, filePaths = []) {
         const ext = file.name.match(/\.(\w{1,5})$/)?.[1]?.toLowerCase();
 
         if (!read[ext]) {
+            elemArr[i].innerHTML = elemArr[i].innerHTML + "<span style='right:0;position:absolute'>[Unsupported Extension]</span>";
             fileListSkippedElem?.appendChild(elemArr[i]);
             fileCountSkippedElem.textContent = String(parseInt(fileCountSkippedElem.textContent) + 1);
             progress.setValue(progress.value + 1);
@@ -355,19 +357,37 @@ async function readFiles(files, filePaths = []) {
             // Notably, as the same mupdf worker is reused, if run in asyc the PDF may be replaced before readPdf is finished reading it.
             // The other functions are not set up to run in workers.
             promiseArr[i] = read[ext](file).then((text) => {
+
                 // Remove excessive newline characters to improve readability
-                globalThis.docText[key] = text.replaceAll(/(\n\s*){3,}/g, "\n\n");
+                text = text.replaceAll(/(\n\s*){3,}/g, "\n\n");
+
+                const fileName = key.match(/[^\/]+$/, "")?.[0];
+
+                // If another file exists with (1) the same name and (2) the same content, then this file is skipped as a duplicate.
+                // This frequently occurs when the same file occurs both independently and as an email attachment.
+                if (globalThis.docNames[fileName] && text === globalThis.docText[globalThis.docNames[fileName]]) {
+                    elemArr[i].innerHTML = elemArr[i].innerHTML + "<span style='right:0;position:absolute'>[Duplicate]</span>";
+                    fileListSkippedElem?.appendChild(elemArr[i]);
+                    fileCountSkippedElem.textContent = String(parseInt(fileCountSkippedElem.textContent) + 1);
+                    return;
+                }
 
                 // In the case of .pdf files, the file is marked as "skipped" rather than "success" if no text was extracted.
                 // This is because the PDF is assumed to be an image-native PDF that would require OCR to extract.
-                if (ext == "pdf" && globalThis.docText[key] === "") {
+                if (ext == "pdf" && text === "") {
+                    elemArr[i].innerHTML = elemArr[i].innerHTML + "<span style='right:0;position:absolute'>[No Text Content]</span>";
                     fileListSkippedElem?.appendChild(elemArr[i]);
                     fileCountSkippedElem.textContent = String(parseInt(fileCountSkippedElem.textContent) + 1);
-                } else {
-                    fileListSuccessElem?.appendChild(elemArr[i]);
-                    fileCountSuccessElem.textContent = String(parseInt(fileCountSuccessElem.textContent) + 1);
+                    return;
                 }
-            }).catch((error) => {
+
+                globalThis.docNames[fileName] = key;
+                globalThis.docText[key] = text;
+
+                fileListSuccessElem?.appendChild(elemArr[i]);
+                fileCountSuccessElem.textContent = String(parseInt(fileCountSuccessElem.textContent) + 1);
+
+        }).catch((error) => {
                 console.log(error);
                 fileListFailedElem?.appendChild(elemArr[i]);
                 fileCountFailedElem.textContent = String(parseInt(fileCountFailedElem.textContent) + 1);
