@@ -330,9 +330,9 @@ async function readFiles(files, filePaths = []) {
 
     const elemArr = [];
     for (let i = 0; i < files.length; i++) {
-        const li = document.createElement("li");
+        const li = document.createElement("a");
         li.innerText = files[i].name;
-        li.setAttribute("class", "list-group-item");
+        li.setAttribute("class", "list-group-item list-group-item-action");
         elemArr.push(li);
     }
 
@@ -361,11 +361,11 @@ async function readFiles(files, filePaths = []) {
                 // Remove excessive newline characters to improve readability
                 text = text.replaceAll(/(\n\s*){3,}/g, "\n\n");
 
-                const fileName = key.match(/[^\/]+$/, "")?.[0];
+                const fileNameBase = key.match(/[^\/]+$/, "")?.[0];
 
                 // If another file exists with (1) the same name and (2) the same content, then this file is skipped as a duplicate.
                 // This frequently occurs when the same file occurs both independently and as an email attachment.
-                if (globalThis.docNames[fileName] && text === globalThis.docText[globalThis.docNames[fileName]]) {
+                if (globalThis.docNames[fileNameBase] && text === globalThis.docText[globalThis.docNames[fileNameBase]]) {
                     elemArr[i].innerHTML = elemArr[i].innerHTML + "<span style='right:0;position:absolute'>[Duplicate]</span>";
                     fileListSkippedElem?.appendChild(elemArr[i]);
                     fileCountSkippedElem.textContent = String(parseInt(fileCountSkippedElem.textContent) + 1);
@@ -374,14 +374,18 @@ async function readFiles(files, filePaths = []) {
 
                 // In the case of .pdf files, the file is marked as "skipped" rather than "success" if no text was extracted.
                 // This is because the PDF is assumed to be an image-native PDF that would require OCR to extract.
-                if (ext == "pdf" && text === "") {
+                if (ext == "pdf" && text.trim() === "") {
                     elemArr[i].innerHTML = elemArr[i].innerHTML + "<span style='right:0;position:absolute'>[No Text Content]</span>";
                     fileListSkippedElem?.appendChild(elemArr[i]);
                     fileCountSkippedElem.textContent = String(parseInt(fileCountSkippedElem.textContent) + 1);
                     return;
                 }
 
-                globalThis.docNames[fileName] = key;
+                elemArr[i].setAttribute("data-bs-toggle", "list");
+        
+                elemArr[i].addEventListener("click", () => viewDoc(key));
+
+                globalThis.docNames[fileNameBase] = key;
                 globalThis.docText[key] = text;
 
                 fileListSuccessElem?.appendChild(elemArr[i]);
@@ -516,19 +520,59 @@ async function searchDocs(search) {
 
 }
 
-globalThis.initViewer = false;
+const state = {
+    // Whether the viewer has been initialized yet
+    initViewerBool: false,
+    // Whether the viewer is showing matches (not just a document) 
+    viewerMatchMode: false,
+    // The current file being displayed
+    viewerFileName: ""
+}
 
 /**
-* @param {searchMatch} match - Name of file
+* Initializes the document viewer UI if it has not already been initialized.
 */
-async function viewResult(match) {
-    if (!globalThis.initViewer) {
+async function initViewer () {
+    if (!state.initViewerBool) {
         document.getElementById("viewerCol").style.width = "50%";
         // The location of the highlighted text is not detected correctly without waiting for the animation
         await new Promise((r) => setTimeout(r, 250));
-        globalThis.initViewer = true;
-
+        state.initViewerBool = true;
     }
+}
+
+/**
+ * Opens document in viewer. 
+ * Used when user selects a document to view, not a search result. 
+* @param {fileName} String - Name of file
+*/
+async function viewDoc(fileName) {
+    await initViewer();
+
+    // Return early if the file being selected is already in the viewer
+    if (!state.viewerMatchMode && state.viewerFileName == fileName) return;
+
+    state.viewerMatchMode = false;
+    state.viewerFileName = fileName;
+
+    const elem = document.createElement("span");
+    elem.setAttribute("style", 'white-space: pre-line');
+    elem.textContent = globalThis.docText[fileName];
+
+    document.getElementById("viewerCard").replaceChild(elem, document.getElementById("viewerCard").firstChild);
+
+    document.getElementById("viewerCard").scrollTop = 0;
+}
+
+/**
+* Opens document in viewer, highlights all matches, and scolls to the location of selected match.
+* @param {searchMatch} match - Match object to scoll to in document
+*/
+async function viewResult(match) {
+    await initViewer();
+
+    state.viewerMatchMode = true;
+    state.viewerFileName = match.fileName;
 
     if (!globalThis.docTextHighlighted[match.fileName]) {
         globalThis.docTextHighlighted[match.fileName] = document.createElement("span");
