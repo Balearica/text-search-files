@@ -314,6 +314,44 @@ var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
     return new bootstrap.Tooltip(tooltipTriggerEl);
 })
 
+// Create list group HTML element with `text`
+// Used for adding files to success/skipped/failed lists
+function createListItem(text) {
+    const li = document.createElement("a");
+    li.innerText = text;
+    li.setAttribute("class", "list-group-item list-group-item-action");
+    return li;
+}
+
+// Add file to the list of failed files
+export function addToFailed(fileName) {
+    const elem = createListItem(fileName);
+    fileListFailedElem?.appendChild(elem);
+    fileCountFailedElem.textContent = String(parseInt(fileCountFailedElem.textContent) + 1);
+    return;
+}
+
+// Add file to the list of skipped files
+function addToSkipped(fileName, reason = null) {
+    const elem = createListItem(fileName);
+    if (reason) elem.innerHTML = elem.innerHTML + "<span style='right:0;position:absolute'>[" + reason + "]</span>";
+    fileListSkippedElem?.appendChild(elem);
+    fileCountSkippedElem.textContent = String(parseInt(fileCountSkippedElem.textContent) + 1);
+    return;
+}
+
+// Add file to the list of successful files
+function addToSuccess(fileName) {
+    const elem = createListItem(fileName);
+    elem.setAttribute("data-bs-toggle", "list");
+    elem.addEventListener("click", () => viewDoc(fileName));
+
+    fileListSuccessElem?.appendChild(elem);
+    fileCountSuccessElem.textContent = String(parseInt(fileCountSuccessElem.textContent) + 1);
+    return;
+}
+
+
 /**
  * @param {File[]} files - Name of file
  * @param {string[]} filePaths - when using the drag-and-drop interface, file paths must be passed manually as an array
@@ -328,14 +366,6 @@ async function readFiles(files, filePaths = []) {
     progress.setMax(progress.max + files.length);
     progress.show();
 
-    const elemArr = [];
-    for (let i = 0; i < files.length; i++) {
-        const li = document.createElement("a");
-        li.innerText = files[i].name;
-        li.setAttribute("class", "list-group-item list-group-item-action");
-        elemArr.push(li);
-    }
-
     const promiseArr = [];
     for (let i = 0; i < files.length; i++) {
 
@@ -348,9 +378,7 @@ async function readFiles(files, filePaths = []) {
         const ext = file.name.match(/\.(\w{1,5})$/)?.[1]?.toLowerCase();
 
         if (!read[ext]) {
-            elemArr[i].innerHTML = elemArr[i].innerHTML + "<span style='right:0;position:absolute'>[Unsupported Extension]</span>";
-            fileListSkippedElem?.appendChild(elemArr[i]);
-            fileCountSkippedElem.textContent = String(parseInt(fileCountSkippedElem.textContent) + 1);
+            addToSkipped(key, "Unsupported Extension");
             progress.setValue(progress.value + 1);
         } else {
             // TODO: This should eventually use promises + workers for better performance, but this will require edits.
@@ -366,35 +394,25 @@ async function readFiles(files, filePaths = []) {
                 // If another file exists with (1) the same name and (2) the same content, then this file is skipped as a duplicate.
                 // This frequently occurs when the same file occurs both independently and as an email attachment.
                 if (globalThis.docNames[fileNameBase] && text === globalThis.docText[globalThis.docNames[fileNameBase]]) {
-                    elemArr[i].innerHTML = elemArr[i].innerHTML + "<span style='right:0;position:absolute'>[Duplicate]</span>";
-                    fileListSkippedElem?.appendChild(elemArr[i]);
-                    fileCountSkippedElem.textContent = String(parseInt(fileCountSkippedElem.textContent) + 1);
+                    addToSkipped(key, "Duplicate");
                     return;
                 }
 
                 // In the case of .pdf files, the file is marked as "skipped" rather than "success" if no text was extracted.
                 // This is because the PDF is assumed to be an image-native PDF that would require OCR to extract.
                 if (ext == "pdf" && text.trim() === "") {
-                    elemArr[i].innerHTML = elemArr[i].innerHTML + "<span style='right:0;position:absolute'>[No Text Content]</span>";
-                    fileListSkippedElem?.appendChild(elemArr[i]);
-                    fileCountSkippedElem.textContent = String(parseInt(fileCountSkippedElem.textContent) + 1);
+                    addToSkipped(key, "No Text Content");
                     return;
                 }
-
-                elemArr[i].setAttribute("data-bs-toggle", "list");
-        
-                elemArr[i].addEventListener("click", () => viewDoc(key));
 
                 globalThis.docNames[fileNameBase] = key;
                 globalThis.docText[key] = text;
 
-                fileListSuccessElem?.appendChild(elemArr[i]);
-                fileCountSuccessElem.textContent = String(parseInt(fileCountSuccessElem.textContent) + 1);
+                addToSuccess(key);
 
         }).catch((error) => {
                 console.log(error);
-                fileListFailedElem?.appendChild(elemArr[i]);
-                fileCountFailedElem.textContent = String(parseInt(fileCountFailedElem.textContent) + 1);
+                addToFailed(key);
 
             }).finally(() => {
                 progress.setValue(progress.value + 1);

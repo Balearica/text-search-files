@@ -1,5 +1,6 @@
 // Code for handling both files and directories uploaded through drag-and-drop interface
 // Taken from: https://stackoverflow.com/questions/3590058/does-html5-allow-drag-drop-upload-of-folders-or-a-folder-tree/53058574#53058574
+import { addToFailed } from "../main.js";
 
 // Drop handler function to get all files
 export async function getAllFileEntries(dataTransferItemList) {
@@ -9,8 +10,17 @@ export async function getAllFileEntries(dataTransferItemList) {
     // Unfortunately dataTransferItemList is not iterable i.e. no forEach
     for (let i = 0; i < dataTransferItemList.length; i++) {
       // Note webkitGetAsEntry a non-standard feature and may change
-      // Usage is necessary for handling directories
-      queue.push(dataTransferItemList[i].webkitGetAsEntry());
+      // Usage is necessary for handling director
+      const entry = dataTransferItemList[i].webkitGetAsEntry();
+
+      // Under fringe circumstances `webkitGetAsEntry` returns null, even for valid files.
+      // This has been observed to happen when files paths are too long.
+      if (entry === null) {
+        const name = dataTransferItemList[i].getAsFile()?.name;
+        addToFailed(name);
+      } else {
+        queue.push(dataTransferItemList[i].webkitGetAsEntry());
+      }
     }
     while (queue.length > 0) {
       let entry = queue.shift();
