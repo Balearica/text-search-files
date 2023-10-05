@@ -4,7 +4,7 @@ import { initMuPDFWorker } from "./mupdf/mupdf-async.js";
 import { MSGReader } from "./lib/msg.reader.js";
 import { ZipReader, BlobReader, TextWriter } from "./lib/zip.js/index.js";
 import { getAllFileEntries } from "./js/drag-and-drop.js";
-import { config, sizeLimits } from "./js/config.js";
+import { config } from "./js/config.js";
 
 import Tesseract from './lib/tesseract.esm.min.js';
 
@@ -36,27 +36,31 @@ export function insertAlertMessage(innerHTML, error = true, divId = "alertDiv") 
     <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z" />
     <path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 4.995z" />
   </svg>`;
-  
+
     const errorSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi flex-shrink-0 me-2" viewBox=" 0 0 16 16">
     <path
       d="M7.938 2.016A.13.13 0 0 1 8.002 2a.13.13 0 0 1 .063.016.146.146 0 0 1 .054.057l6.857 11.667c.036.06.035.124.002.183a.163.163 0 0 1-.054.06.116.116 0 0 1-.066.017H1.146a.115.115 0 0 1-.066-.017.163.163 0 0 1-.054-.06.176.176 0 0 1 .002-.183L7.884 2.073a.147.147 0 0 1 .054-.057zm1.044-.45a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566z" />
     <path d="M7.002 12a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 5.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995z" />
   </svg>`;
-  
+
     const chosenSVG = error ? errorSVG : warningSVG;
-  
+
     const htmlDiv = document.createElement("div");
-  
+
     htmlDiv.innerHTML = `<div class="alert alert-dismissible ${error ? "alert-danger" : "alert-warning"} d-flex align-items-center show fade mb-1">
     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     ${chosenSVG}
     <div class="mb-0"> ${innerHTML} </div>
   </div>`;
-  
+
     document.getElementById(divId)?.appendChild(htmlDiv);
-  
-  }
-  
+
+}
+
+
+const importOptionsCollapseElem = document.getElementById("import-options-collapse");
+globalThis.optionsCollapseObj = new bootstrap.Collapse(importOptionsCollapseElem, { toggle: false });
+
 
 const importProgressCollapseElem = document.getElementById("import-progress-collapse");
 globalThis.progressCollapseObj = new bootstrap.Collapse(importProgressCollapseElem, { toggle: false });
@@ -414,6 +418,11 @@ async function readFiles(files, filePaths = []) {
         fileNWarningThrown = true;
     }
 
+    // Get size limit for reading xlsx files provided by the user.
+    // If the values is invalid, default to 10 MB. 
+    const xlsxSizeLimitUser = parseFloat(document.getElementById("xlsxSizeLimit").value) * 1000000;
+    const xlsxSizeLimit = xlsxSizeLimitUser === null || xlsxSizeLimitUser === undefined | !isFinite(xlsxSizeLimitUser) ? 10000000 : xlsxSizeLimitUser;
+
     const promiseArr = [];
     for (let i = 0; i < files.length; i++) {
 
@@ -428,7 +437,7 @@ async function readFiles(files, filePaths = []) {
         if (!read[ext]) {
             addToSkipped(key, "Unsupported Extension");
             progress.setValue(progress.value + 1);
-        } else if (sizeLimits[ext] && file.size > sizeLimits[ext]) {
+        } else if (ext === "xlsx" && file.size > xlsxSizeLimit) {
             addToSkipped(key, "Over Size Limit");
             progress.setValue(progress.value + 1);
         } else {
@@ -465,7 +474,7 @@ async function readFiles(files, filePaths = []) {
 
                 addToSuccess(key);
 
-        }).catch((error) => {
+            }).catch((error) => {
                 console.log(error);
                 addToFailed(key);
 
@@ -605,7 +614,7 @@ const state = {
 /**
 * Initializes the document viewer UI if it has not already been initialized.
 */
-async function initViewer () {
+async function initViewer() {
     if (!state.initViewerBool) {
         document.getElementById("viewerCol").style.width = "50%";
         // The location of the highlighted text is not detected correctly without waiting for the animation
@@ -679,7 +688,7 @@ async function viewResult(match) {
         globalThis.docTextHighlighted[match.fileName].appendChild(postText);
 
     }
-      
+
 
     document.getElementById("viewerCard").replaceChild(globalThis.docTextHighlighted[match.fileName], document.getElementById("viewerCard").firstChild)
 
