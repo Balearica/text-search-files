@@ -103,7 +103,7 @@ async function getMuPDFScheduler() {
     return globalThis.muPDFScheduler;
 }
 
-initMuPDFScheduler();
+globalThis.muPDFScheduler = initMuPDFScheduler();
 
 zone.addEventListener('dragover', (event) => {
     event.preventDefault();
