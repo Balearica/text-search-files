@@ -14,5 +14,5 @@ export const config = {
 // Limits are necessary for file types such as .xlsx, which can contain human-readable content
 // (which should be processed) or be used to store gigabytes of data (which should be skipped).
 export const sizeLimits = {
-    "xlsx": 250000
+    "xlsx": 250000000 // 250 MB
 }
