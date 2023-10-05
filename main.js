@@ -234,11 +234,11 @@ const readDocx = async (file) => {
 
                 // This matches both (1) normal text and (2) text inserted in tracked changes.
                 // Text deleted in tracked changes is not included, as it is in "<w:delText>" tags rather than "<w:t>"
-                const textArr = pArr[j].match(/(?<=\<w:t[^>\/]{0,200}?\>)[\s\S]+?(?=\<\/w:t\>)/g);
+                const textArr = pArr[j].match(/\<w:t[^>\/]{0,200}?\>[\s\S]+?(?=\<\/w:t\>)/g);
                 if (!textArr) continue;
 
                 for (let k = 0; k < textArr.length; k++) {
-                    text += textArr[k] + " ";
+                    text += textArr[k].replace(/\<w:t[^>\/]{0,200}?\>/, "") + " ";
                 }
                 text += "\n";
 
@@ -264,11 +264,17 @@ const readXlsx = async (file) => {
             const xmlStr = await entries[i].getData(new TextWriter());
             // This matches both (1) normal text and (2) text inserted in tracked changes.
             // Text deleted in tracked changes is not included, as it is in "<w:delText>" tags rather than "<w:t>"
-            const textArr = xmlStr.match(/(?<=\<t[^>\/]{0,200}?\>)[\s\S]+?(?=\<\/t\>)/g);
+
+            // Note: At present (2023) lookbehinds come with a MAJOR performance penalty.
+            // Therefore, we instead leade on the opening tags and remove them in a later step.  
+            // This may change in the future if lookbehind performance improves.
+            // const textArr = xmlStr.match(/(?<=\<t[^>\/]{0,200}?\>)[\s\S]+?(?=\<\/t\>)/g);
+
+            const textArr = xmlStr.match(/\<t[^>\/]{0,200}?\>[\s\S]+?(?=\<\/t\>)/g);
             if (!textArr) continue;
 
             for (let j = 0; j < textArr.length; j++) {
-                text += textArr[j] + " ";
+                text += textArr[j].replace(/\<t[^>\/]{0,200}?\>/, "") + " ";
             }
             text += "\n";
         }
@@ -291,11 +297,11 @@ const readPptx = async (file) => {
             const xmlStr = await entries[i].getData(new TextWriter());
             // This matches both (1) normal text and (2) text inserted in tracked changes.
             // Text deleted in tracked changes is not included, as it is in "<w:delText>" tags rather than "<w:t>"
-            const textArr = xmlStr.match(/(?<=\<a:t[^>\/]{0,200}?\>)[\s\S]+?(?=\<\/a:t\>)/g);
+            const textArr = xmlStr.match(/\<a:t[^>\/]{0,200}?\>[\s\S]+?(?=\<\/a:t\>)/g);
             if (!textArr) continue;
 
             for (let j = 0; j < textArr.length; j++) {
-                text += textArr[j] + " ";
+                text += textArr[j].replace(/\<a:t[^>\/]{0,200}?\>/, "") + " ";
             }
             text += "\n";
         }
@@ -417,6 +423,8 @@ async function readFiles(files, filePaths = []) {
 
         const ext = file.name.match(/\.(\w{1,5})$/)?.[1]?.toLowerCase();
 
+        const startFile = Date.now();
+
         if (!read[ext]) {
             addToSkipped(key, "Unsupported Extension");
             progress.setValue(progress.value + 1);
@@ -428,6 +436,10 @@ async function readFiles(files, filePaths = []) {
             // Notably, as the same mupdf worker is reused, if run in asyc the PDF may be replaced before readPdf is finished reading it.
             // The other functions are not set up to run in workers.
             promiseArr[i] = read[ext](file).then((text) => {
+
+                // Set `globalThis.debugMode = true` in the console to print the runtimes for each file
+                const endFile = Date.now();
+                if (globalThis.debugMode) console.log(`${key}: ${endFile - startFile} ms`);
 
                 // Remove excessive newline characters to improve readability
                 text = text.replaceAll(/(\n\s*){3,}/g, "\n\n");
