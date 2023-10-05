@@ -415,8 +415,6 @@ async function readFiles(files, filePaths = []) {
 
         const key = filePaths[i] || file.webkitRelativePath || file.name;
 
-        globalThis.docText[key] = "";
-
         const ext = file.name.match(/\.(\w{1,5})$/)?.[1]?.toLowerCase();
 
         if (!read[ext]) {
