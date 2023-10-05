@@ -4,6 +4,7 @@ import { initMuPDFWorker } from "./mupdf/mupdf-async.js";
 import { MSGReader } from "./lib/msg.reader.js";
 import { ZipReader, BlobReader, TextWriter } from "./lib/zip.js/index.js";
 import { getAllFileEntries } from "./js/drag-and-drop.js";
+import { config } from "./js/config.js";
 
 import Tesseract from './lib/tesseract.esm.min.js';
 
@@ -15,6 +16,12 @@ const fileCountFailedElem = document.getElementById('fileCountFailed');
 const fileCountSkippedElem = document.getElementById('fileCountSkipped');
 
 const matchListElem = document.getElementById('matchList');
+
+// Replace documentation URL if a non-default option is set in config object
+const docsURLElem = document.getElementById('docsURL');
+if (config.docsURL) {
+    docsURLElem.setAttribute("href", config.docsURL);
+}
 
 globalThis.docNames = {};
 globalThis.docText = {};
