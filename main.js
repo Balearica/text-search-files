@@ -4,7 +4,7 @@ import { initMuPDFWorker } from "./mupdf/mupdf-async.js";
 import { MSGReader } from "./lib/msg.reader.js";
 import { ZipReader, BlobReader, TextWriter } from "./lib/zip.js/index.js";
 import { getAllFileEntries } from "./js/drag-and-drop.js";
-import { config } from "./js/config.js";
+import { config, sizeLimits } from "./js/config.js";
 
 import Tesseract from './lib/tesseract.esm.min.js';
 
@@ -386,6 +386,9 @@ async function readFiles(files, filePaths = []) {
 
         if (!read[ext]) {
             addToSkipped(key, "Unsupported Extension");
+            progress.setValue(progress.value + 1);
+        } if (sizeLimits[ext] && file.size > sizeLimits[ext]) {
+            addToSkipped(key, "Over Size Limit");
             progress.setValue(progress.value + 1);
         } else {
             // TODO: This should eventually use promises + workers for better performance, but this will require edits.
