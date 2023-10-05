@@ -420,7 +420,7 @@ async function readFiles(files, filePaths = []) {
         if (!read[ext]) {
             addToSkipped(key, "Unsupported Extension");
             progress.setValue(progress.value + 1);
-        } if (sizeLimits[ext] && file.size > sizeLimits[ext]) {
+        } else if (sizeLimits[ext] && file.size > sizeLimits[ext]) {
             addToSkipped(key, "Over Size Limit");
             progress.setValue(progress.value + 1);
         } else {
