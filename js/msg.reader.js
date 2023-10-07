@@ -524,7 +524,7 @@
   }
 
   // MSG Reader
-  export let MSGReader = function (arrayBuffer) {
+  globalThis.MSGReader = function (arrayBuffer) {
     this.ds = new DataStream(arrayBuffer, 0, DataStream.LITTLE_ENDIAN);
   };
 

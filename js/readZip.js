@@ -38,6 +38,7 @@ export async function initZipWorker() {
 			}
 		}
 
+        obj.readMsg = wrap("readMsg");
         obj.readTxt = wrap("readTxt");
         obj.readHtml = wrap("readHtml");
 		obj.readXlsx = wrap("readXlsx");

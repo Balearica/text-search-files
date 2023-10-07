@@ -1,7 +1,6 @@
 
 
 import { initMuPDFWorker } from "./mupdf/mupdf-async.js";
-import { MSGReader } from "./lib/msg.reader.js";
 import { getAllFileEntries } from "./js/drag-and-drop.js";
 import { config } from "./js/config.js";
 
@@ -207,25 +206,10 @@ function getRandomAlphanum(num) {
 const w = await initMuPDFWorker();
 
 const readMsg = async (file) => {
-    const startTime = Date.now();
-
-    const msgReader = new MSGReader(await file.arrayBuffer());
-    const fileData = msgReader.getFileData();
-    const text = fileData.body;
-
-    const attachmentFiles = [];
-    for (let i = 0; i < fileData.attachments.length; i++) {
-        const attachmentObj = msgReader.getAttachment(i);
-        const attachmentFile = new File([attachmentObj.content], attachmentObj.fileName, { type: attachmentObj.mimeType ? attachmentObj.mimeType : "application/octet-stream" });
-        attachmentFiles.push(attachmentFile);
-    }
-
-    // Set `globalThis.debugMode = true` in the console to print the runtimes for each file
-    const runtime = Date.now() - startTime;
-    if (globalThis.debugMode) console.log(`${file?.name}: ${runtime} ms`);
-
-    if (attachmentFiles.length > 0) await readFiles(attachmentFiles);
-    return text;
+    const scheduler = await getReadZipScheduler();
+    const res = await scheduler.addJob('readMsg', file);
+    if (res.attachmentFiles.length > 0) await readFiles(res.attachmentFiles);
+    return res.text;
 }
 
 const readPdf = async (file) => {
@@ -253,10 +237,18 @@ const readTxt = async (file) => {
     return res;
 }
 
+// TODO: Write a version of readHTML that runs in a worker.
+// This version does not because DOMParser does not exist in workers.
 const readHtml = async (file) => {
-    const scheduler = await getReadZipScheduler();
-    const res = await scheduler.addJob('readHtml', file);
-    return res;
+    let fileStr = await readTxt(file);
+    // Delete any embedded Javascript code
+    fileStr = fileStr.replaceAll(/\<script[^>]*?\>[\s\S]*?\<\/script\>/gi, "");
+    const parser = new DOMParser();
+    const htmlDoc = parser.parseFromString(fileStr, "text/html");
+    // The text content often has an excessive number of newlines
+    const text = htmlDoc.body.textContent?.replaceAll(/\n{2,}/g, "\n");
+
+    return text;
 }
 
 const readXlsx = async (file) => {

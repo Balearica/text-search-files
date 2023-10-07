@@ -1,4 +1,7 @@
 // Worker for reading .zip files (including Microsoft Office files such as .docx, .xlsx, and .pptx)
+importScripts('msg.reader.js');
+importScripts('DataStream.js');
+
 // importScripts('zip-no-worker-inflate.min.js');
 importScripts('zip-full.min.js');
 
@@ -21,6 +24,28 @@ addEventListener('message', async e => {
     
 });
 
+const readMsg = async (file) => {
+    const startTime = Date.now();
+
+    const msgReader = new MSGReader(await file.arrayBuffer());
+    const fileData = msgReader.getFileData();
+    const text = fileData.body;
+
+    const attachmentFiles = [];
+    for (let i = 0; i < fileData.attachments.length; i++) {
+        const attachmentObj = msgReader.getAttachment(i);
+        const attachmentFile = new File([attachmentObj.content], attachmentObj.fileName, { type: attachmentObj.mimeType ? attachmentObj.mimeType : "application/octet-stream" });
+        attachmentFiles.push(attachmentFile);
+    }
+
+    // Set `globalThis.debugMode = true` in the console to print the runtimes for each file
+    const runtime = Date.now() - startTime;
+    if (globalThis.debugMode) console.log(`${file?.name}: ${runtime} ms`);
+
+    return {text: text, attachmentFiles: attachmentFiles};
+}
+
+
 function readTxt(file) {
     return new Promise((resolve, reject) => {
         let reader = new FileReader();
@@ -32,18 +57,19 @@ function readTxt(file) {
     });
 }
 
+// TODO: Write a version of readHTML that runs in a worker.
+// This version does not because DOMParser does not exist in workers.
+// const readHtml = async (file) => {
+//     let fileStr = await readTxt(file);
+//     // Delete any embedded Javascript code
+//     fileStr = fileStr.replaceAll(/\<script[^>]*?\>[\s\S]*?\<\/script\>/gi, "");
+//     const parser = new DOMParser();
+//     const htmlDoc = parser.parseFromString(fileStr, "text/html");
+//     // The text content often has an excessive number of newlines
+//     const text = htmlDoc.body.textContent?.replaceAll(/\n{2,}/g, "\n");
 
-const readHtml = async (file) => {
-    let fileStr = await readTxt(file);
-    // Delete any embedded Javascript code
-    fileStr = fileStr.replaceAll(/\<script[^>]*?\>[\s\S]*?\<\/script\>/gi, "");
-    const parser = new DOMParser();
-    const htmlDoc = parser.parseFromString(fileStr, "text/html");
-    // The text content often has an excessive number of newlines
-    const text = htmlDoc.body.textContent?.replaceAll(/\n{2,}/g, "\n");
-
-    return text;
-}
+//     return text;
+// }
 
 const readDocx = async (file) => {
     const zipFileReader = new zip.BlobReader(file);
@@ -142,8 +168,9 @@ const readPptx = async (file) => {
 }
 
 const read = {
+    "readMsg": readMsg,
     "readTxt": readTxt,
-    "readHtml": readHtml,
+    // "readHtml": readHtml,
     "readXlsx": readXlsx,
     "readDocx": readDocx,
     "readPptx": readPptx
