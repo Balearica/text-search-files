@@ -374,8 +374,13 @@ async function readFiles(files, filePaths = []) {
 
         const ext = file.name.match(/\.(\w{1,5})$/)?.[1]?.toLowerCase();
 
+        const extEnabled = document.getElementById("btncheck" + ext)?.checked;
+
         if (!read[ext]) {
             addToSkipped(key, "Unsupported Extension");
+            progress.setValue(progress.value + 1);
+        } else if (extEnabled === false) {
+            addToSkipped(key, "Disabled Extension");
             progress.setValue(progress.value + 1);
         } else if (ext === "xlsx" && file.size > xlsxSizeLimit) {
             addToSkipped(key, "Over Size Limit");
@@ -650,3 +655,24 @@ document.getElementById('searchTextInput').addEventListener('keyup', function (e
 document.getElementById('searchTextBtn').addEventListener('click', (event) => searchDocs(document.getElementById("searchTextInput").value));
 
 document.getElementById("supportedFormats").innerText = Object.keys(read).join(", ");
+
+const extButtonGroupElem = document.getElementById("extButtonGroup");
+
+function addExtOption(ext) {
+    const inputElem = document.createElement("input");
+    inputElem.setAttribute("type", 'checkbox');
+    inputElem.setAttribute("class", 'btn-check');
+    inputElem.setAttribute("id", 'btncheck' + ext);
+    inputElem.setAttribute("autocomplete", 'off');
+    inputElem.checked = true;
+
+    const labelElem = document.createElement("label");
+    labelElem.setAttribute("class", 'btn btn-outline-primary');
+    labelElem.setAttribute("for", 'btncheck' + ext);
+    labelElem.textContent = ext;
+
+    extButtonGroupElem.appendChild(inputElem);
+    extButtonGroupElem.appendChild(labelElem);
+}
+
+Object.keys(read).map((ext) => addExtOption(ext));
