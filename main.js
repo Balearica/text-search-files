@@ -2,9 +2,10 @@
 
 import { initMuPDFWorker } from "./mupdf/mupdf-async.js";
 import { MSGReader } from "./lib/msg.reader.js";
-import { ZipReader, BlobReader, TextWriter } from "./lib/zip.js/index.js";
 import { getAllFileEntries } from "./js/drag-and-drop.js";
 import { config } from "./js/config.js";
+
+import { initZipWorker } from "./js/readZip.js";
 
 import Tesseract from './lib/tesseract.esm.min.js';
 
@@ -108,6 +109,28 @@ async function getMuPDFScheduler() {
 }
 
 globalThis.muPDFScheduler = initMuPDFScheduler();
+
+async function initreadZipScheduler(workers = 3) {
+    const scheduler = Tesseract.createScheduler();
+    scheduler["workers"] = new Array(workers);
+    for (let i = 0; i < workers; i++) {
+        const w = await initZipWorker();
+        w.id = `png-${Math.random().toString(16).slice(3, 8)}`;
+        scheduler.addWorker(w);
+        scheduler["workers"][i] = w;
+    }
+    return scheduler;
+}
+
+async function getReadZipScheduler() {
+    if (!globalThis.readZipScheduler) {
+        globalThis.readZipScheduler = initreadZipScheduler();
+    }
+    return globalThis.readZipScheduler;
+}
+
+globalThis.readZipScheduler = getReadZipScheduler();
+
 
 zone.addEventListener('dragover', (event) => {
     event.preventDefault();
@@ -217,104 +240,6 @@ const readPdf = async (file) => {
     return text;
 }
 
-const readDocx = async (file) => {
-    const zipFileReader = new BlobReader(file);
-    const zipReader = new ZipReader(zipFileReader);
-    const entries = await zipReader.getEntries();
-    const textWriter = new TextWriter();
-    let text = "";
-
-    for (let i = 0; i < entries.length; i++) {
-        if (['word/document.xml', 'word/footnotes.xml', 'word/endnotes.xml', 'word/comments.xml'].includes(entries[i].filename)) {
-            const xmlStr = await entries[i].getData(new TextWriter());
-
-            // Get array of paragraph ("p") elements
-            // This step allows for inserting line breaks between paragraphs
-            const pArr = xmlStr.match(/(?<=\<w:p[^>\/]{0,200}?\>)[\s\S]+?(?=\<\/w:p\>)/g);
-
-            if (!pArr) continue;
-
-            for (let j = 0; j < pArr.length; j++) {
-
-                // This matches both (1) normal text and (2) text inserted in tracked changes.
-                // Text deleted in tracked changes is not included, as it is in "<w:delText>" tags rather than "<w:t>"
-                const textArr = pArr[j].match(/\<w:t[^>\/]{0,200}?\>[\s\S]+?(?=\<\/w:t\>)/g);
-                if (!textArr) continue;
-
-                for (let k = 0; k < textArr.length; k++) {
-                    text += textArr[k].replace(/\<w:t[^>\/]{0,200}?\>/, "") + " ";
-                }
-                text += "\n";
-
-            }
-
-        }
-    }
-
-    await zipReader.close();
-
-    return text;
-}
-
-const readXlsx = async (file) => {
-    const zipFileReader = new BlobReader(file);
-    const zipReader = new ZipReader(zipFileReader);
-    const entries = await zipReader.getEntries();
-    const textWriter = new TextWriter();
-    let text = "";
-
-    for (let i = 0; i < entries.length; i++) {
-        if (['xl/workbook.xml', 'xl/sharedStrings.xml'].includes(entries[i].filename) || /xl\/worksheets\/[^\/]+.xml/.test(entries[i].filename)) {
-            const xmlStr = await entries[i].getData(new TextWriter());
-            // This matches both (1) normal text and (2) text inserted in tracked changes.
-            // Text deleted in tracked changes is not included, as it is in "<w:delText>" tags rather than "<w:t>"
-
-            // Note: At present (2023) lookbehinds come with a MAJOR performance penalty.
-            // Therefore, we instead leade on the opening tags and remove them in a later step.  
-            // This may change in the future if lookbehind performance improves.
-            // const textArr = xmlStr.match(/(?<=\<t[^>\/]{0,200}?\>)[\s\S]+?(?=\<\/t\>)/g);
-
-            const textArr = xmlStr.match(/\<t[^>\/]{0,200}?\>[\s\S]+?(?=\<\/t\>)/g);
-            if (!textArr) continue;
-
-            for (let j = 0; j < textArr.length; j++) {
-                text += textArr[j].replace(/\<t[^>\/]{0,200}?\>/, "") + " ";
-            }
-            text += "\n";
-        }
-    }
-
-    await zipReader.close();
-
-    return text;
-}
-
-const readPptx = async (file) => {
-    const zipFileReader = new BlobReader(file);
-    const zipReader = new ZipReader(zipFileReader);
-    const entries = await zipReader.getEntries();
-    const textWriter = new TextWriter();
-    let text = "";
-
-    for (let i = 0; i < entries.length; i++) {
-        if (/ppt\/slides\/[^\/]+.xml/.test(entries[i].filename) || /ppt\/notesSlides\/[^\/]+.xml/.test(entries[i].filename) || /ppt\/comments\/[^\/]+.xml/.test(entries[i].filename)) {
-            const xmlStr = await entries[i].getData(new TextWriter());
-            // This matches both (1) normal text and (2) text inserted in tracked changes.
-            // Text deleted in tracked changes is not included, as it is in "<w:delText>" tags rather than "<w:t>"
-            const textArr = xmlStr.match(/\<a:t[^>\/]{0,200}?\>[\s\S]+?(?=\<\/a:t\>)/g);
-            if (!textArr) continue;
-
-            for (let j = 0; j < textArr.length; j++) {
-                text += textArr[j].replace(/\<a:t[^>\/]{0,200}?\>/, "") + " ";
-            }
-            text += "\n";
-        }
-    }
-
-    await zipReader.close();
-
-    return text;
-}
 
 function readTxt(file) {
     return new Promise((resolve, reject) => {
@@ -338,6 +263,24 @@ const readHtml = async (file) => {
     const text = htmlDoc.body.textContent?.replaceAll(/\n{2,}/g, "\n");
 
     return text;
+}
+
+const readXlsx = async (file) => {
+    const scheduler = await getReadZipScheduler();
+    const res = await scheduler.addJob('readXlsx', file);
+    return res;
+}
+
+const readDocx = async (file) => {
+    const scheduler = await getReadZipScheduler();
+    const res = await scheduler.addJob('readDocx', file);
+    return res;
+}
+
+const readPptx = async (file) => {
+    const scheduler = await getReadZipScheduler();
+    const res = await scheduler.addJob('readPptx', file);
+    return res;
 }
 
 // This object contains the mapping between file extensions and read functions.
