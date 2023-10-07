@@ -21,6 +21,29 @@ addEventListener('message', async e => {
     
 });
 
+function readTxt(file) {
+    return new Promise((resolve, reject) => {
+        let reader = new FileReader();
+        reader.onload = () => {
+            resolve(reader.result);
+        };
+        reader.onerror = reject;
+        reader.readAsText(file);
+    });
+}
+
+
+const readHtml = async (file) => {
+    let fileStr = await readTxt(file);
+    // Delete any embedded Javascript code
+    fileStr = fileStr.replaceAll(/\<script[^>]*?\>[\s\S]*?\<\/script\>/gi, "");
+    const parser = new DOMParser();
+    const htmlDoc = parser.parseFromString(fileStr, "text/html");
+    // The text content often has an excessive number of newlines
+    const text = htmlDoc.body.textContent?.replaceAll(/\n{2,}/g, "\n");
+
+    return text;
+}
 
 const readDocx = async (file) => {
     const zipFileReader = new zip.BlobReader(file);
@@ -119,6 +142,8 @@ const readPptx = async (file) => {
 }
 
 const read = {
+    "readTxt": readTxt,
+    "readHtml": readHtml,
     "readXlsx": readXlsx,
     "readDocx": readDocx,
     "readPptx": readPptx

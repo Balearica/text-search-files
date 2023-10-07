@@ -207,6 +207,8 @@ function getRandomAlphanum(num) {
 const w = await initMuPDFWorker();
 
 const readMsg = async (file) => {
+    const startTime = Date.now();
+
     const msgReader = new MSGReader(await file.arrayBuffer());
     const fileData = msgReader.getFileData();
     const text = fileData.body;
@@ -217,6 +219,11 @@ const readMsg = async (file) => {
         const attachmentFile = new File([attachmentObj.content], attachmentObj.fileName, { type: attachmentObj.mimeType ? attachmentObj.mimeType : "application/octet-stream" });
         attachmentFiles.push(attachmentFile);
     }
+
+    // Set `globalThis.debugMode = true` in the console to print the runtimes for each file
+    const runtime = Date.now() - startTime;
+    if (globalThis.debugMode) console.log(`${file?.name}: ${runtime} ms`);
+
     if (attachmentFiles.length > 0) await readFiles(attachmentFiles);
     return text;
 }
@@ -227,7 +234,7 @@ const readPdf = async (file) => {
 
     const scheduler = await getMuPDFScheduler();
 
-    let text = await scheduler.addJob("openDocumentExtractText", [fileData, "file.pdf"]);
+    let text = await scheduler.addJob("openDocumentExtractText", [fileData, file?.name || "file.pdf"]);
 
     // PDF portfolios are essentially archive files with a .pdf extension
     // Unfortunately, they do not throw an error when read as a standard PDF files, but rather (at least when created using Acrobat)
@@ -240,29 +247,16 @@ const readPdf = async (file) => {
     return text;
 }
 
-
-function readTxt(file) {
-    return new Promise((resolve, reject) => {
-        let reader = new FileReader();
-        reader.onload = () => {
-            resolve(reader.result);
-        };
-        reader.onerror = reject;
-        reader.readAsText(file);
-    });
+const readTxt = async (file) => {
+    const scheduler = await getReadZipScheduler();
+    const res = await scheduler.addJob('readTxt', file);
+    return res;
 }
 
-
 const readHtml = async (file) => {
-    let fileStr = await readTxt(file);
-    // Delete any embedded Javascript code
-    fileStr = fileStr.replaceAll(/\<script[^>]*?\>[\s\S]*?\<\/script\>/gi, "");
-    const parser = new DOMParser();
-    const htmlDoc = parser.parseFromString(fileStr, "text/html");
-    // The text content often has an excessive number of newlines
-    const text = htmlDoc.body.textContent?.replaceAll(/\n{2,}/g, "\n");
-
-    return text;
+    const scheduler = await getReadZipScheduler();
+    const res = await scheduler.addJob('readHtml', file);
+    return res;
 }
 
 const readXlsx = async (file) => {
@@ -375,8 +369,6 @@ async function readFiles(files, filePaths = []) {
 
         const ext = file.name.match(/\.(\w{1,5})$/)?.[1]?.toLowerCase();
 
-        const startFile = Date.now();
-
         if (!read[ext]) {
             addToSkipped(key, "Unsupported Extension");
             progress.setValue(progress.value + 1);
@@ -388,10 +380,6 @@ async function readFiles(files, filePaths = []) {
             // Notably, as the same mupdf worker is reused, if run in asyc the PDF may be replaced before readPdf is finished reading it.
             // The other functions are not set up to run in workers.
             promiseArr[i] = read[ext](file).then((text) => {
-
-                // Set `globalThis.debugMode = true` in the console to print the runtimes for each file
-                const endFile = Date.now();
-                if (globalThis.debugMode) console.log(`${key}: ${endFile - startFile} ms`);
 
                 // Remove excessive newline characters to improve readability
                 text = text.replaceAll(/(\n\s*){3,}/g, "\n\n");

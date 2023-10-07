@@ -39,8 +39,15 @@ export async function initMuPDFWorker() {
 		worker.onmessage = function (event) {
 			worker.promises = {};
 			worker.promiseId = 0;
+			worker.startTime = {};
+			worker.fileName = {};
+	
 			worker.onmessage = async function (event) {
 				let [ type, id, result ] = event.data;
+				// Set `globalThis.debugMode = true` in the console to print the runtimes for each file
+				const runtime = Date.now() - worker.startTime[id];
+				if (globalThis.debugMode) console.log(`${worker.fileName[id]}: ${runtime} ms`);
+		
 				if (type === "RESULT"){
 					//worker.promises[id].resolve(result);
 					if (["drawPageAsPNG"].includes(worker.promises[id].func)) {
@@ -64,6 +71,11 @@ export async function initMuPDFWorker() {
 		function wrap(func) {
 			return function(...args) {
 				return new Promise(function (resolve, reject) {
+					let id = worker.promiseId++;
+
+                    worker.startTime[id] = Date.now();
+                    worker.fileName[id] = args[0]?.[1];
+
 					// Add the PDF as the first argument for most functions
 					if(["openDocument", "openDocumentExtractText"].includes(func)){
 						// Remove job number (appended by Tesseract scheduler function)
@@ -73,7 +85,7 @@ export async function initMuPDFWorker() {
 					} else {
 						args = [mupdf["pdfDoc"],...args[0]]
 					}
-					let id = worker.promiseId++;
+
 					let page = ["drawPageAsPNG"].includes(func) ? args[1] : null;
 					worker.promises[id] = { resolve: resolve, reject: reject, func: func, page: page};
 
