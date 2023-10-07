@@ -87,8 +87,10 @@ const progress = {
     }
 }
 
+// Create between 2 and 12 of each kind of worker depending on how many cores the CPU has
+const workerN = Math.min(Math.max(Math.round(navigator.hardwareConcurrency / 3 || 3), 2), 12);
 
-async function initMuPDFScheduler(workers = 3) {
+async function initMuPDFScheduler(workers = workerN) {
     const scheduler = Tesseract.createScheduler();
     scheduler["workers"] = new Array(workers);
     for (let i = 0; i < workers; i++) {
@@ -109,7 +111,7 @@ async function getMuPDFScheduler() {
 
 globalThis.muPDFScheduler = initMuPDFScheduler();
 
-async function initreadZipScheduler(workers = 3) {
+async function initreadZipScheduler(workers = workerN) {
     const scheduler = Tesseract.createScheduler();
     scheduler["workers"] = new Array(workers);
     for (let i = 0; i < workers; i++) {
@@ -128,7 +130,18 @@ async function getReadZipScheduler() {
     return globalThis.readZipScheduler;
 }
 
-globalThis.readZipScheduler = getReadZipScheduler();
+globalThis.readZipScheduler = initreadZipScheduler();
+
+// Function that re-initializes schedulers with different number of workers.
+// Used for debugging purposes (benchmarking optimal number of workers).
+globalThis.reinitSchedulers = async (n) => {
+    const scheduler1 = await globalThis.muPDFScheduler;
+    const scheduler2 = await globalThis.readZipScheduler;
+    await scheduler1.terminate();
+    await scheduler2.terminate();
+    globalThis.muPDFScheduler = initMuPDFScheduler(n);
+    globalThis.readZipScheduler = initreadZipScheduler(n);
+}
 
 
 zone.addEventListener('dragover', (event) => {

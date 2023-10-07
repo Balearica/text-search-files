@@ -44,5 +44,6 @@ export async function initZipWorker() {
 		obj.readXlsx = wrap("readXlsx");
         obj.readDocx = wrap("readDocx");
         obj.readPptx = wrap("readPptx");
+        obj.terminate = function () { worker.terminate(); }
 	})
 };
